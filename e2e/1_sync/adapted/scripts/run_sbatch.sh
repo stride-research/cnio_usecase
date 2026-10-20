@@ -9,13 +9,13 @@
 #SBATCH --ntasks-per-node=8
 #SBATCH -c 8
 #SBATCH -t 00:30:00
-#SBATCH -J cf_flowgentic
-#SBATCH -o /home/javidsegura/software/isolation/1_sync/flowgentic/sbatch.out
-#SBATCH -e /home/javidsegura/software/isolation/1_sync/flowgentic/sbatch.err
+#SBATCH -J cf_adapted
+#SBATCH -o /home/javidsegura/software/isolation/1_sync/adapted/sbatch.out
+#SBATCH -e /home/javidsegura/software/isolation/1_sync/adapted/sbatch.err
 
 set -euo pipefail
 
-FG_DIR="/home/javidsegura/software/isolation/1_sync/flowgentic"
+FG_DIR="/home/javidsegura/software/isolation/1_sync/adapted"
 CONFIG="$FG_DIR/config/config.json"
 
 # Self-contained venv: no `module load`, so PYTHONPATH is never set. See

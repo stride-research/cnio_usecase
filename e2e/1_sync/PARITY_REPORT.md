@@ -1,7 +1,7 @@
 # Track A vs Track B: parity report
 
 **Scope.** Does replacing CageFlow's `Executor`/`Budget` with an AsyncFlow + Dragon
-orchestrator (Track B, `flowgentic/`) change the science, relative to calling her documented
+orchestrator (Track B, `adapted/`) change the science, relative to calling her documented
 stage functions directly in her original sequential order (Track A, `original/`)? Both tracks
 ran the same frozen config (`5dii_trimer.pdb`, 4 docks materialized, 2 selected, seeds pinned)
 on the same node (`fortran`).
@@ -9,7 +9,7 @@ on the same node (`fortran`).
 **Runs compared.** Track A: job 24194 (2026-10-20, `wall_s=544`), her unmodified
 `run_cage_flow()` called directly. Track B: job 24197 (2026-10-20, `wall_s=209`), the current
 `src/main.py` + `stages/`. Raw files for both are in `original/results/` and
-`flowgentic/results/`.
+`adapted/results/`.
 
 **Both tracks now run on a self-contained venv with no `module load` and no `PYTHONPATH`
 anywhere** (`~/.venvs/asyncflow` on the cluster) — see

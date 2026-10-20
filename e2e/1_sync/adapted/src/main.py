@@ -103,8 +103,8 @@ import dragon  # noqa: F401  (must be imported before mp.set_start_method("drago
 # schema/ is a sibling of src/, not a subdirectory of it, so it isn't on sys.path just
 # because this script lives in src/ -- add it explicitly, before any `from state import`
 # (here or in stages/*.py, which inherit this process's sys.path once imported below).
-FLOWGENTIC_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(FLOWGENTIC_DIR / "schema"))
+ADAPTED_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ADAPTED_DIR / "schema"))
 
 from dotenv import load_dotenv
 from radical.asyncflow import WorkflowEngine
@@ -116,25 +116,25 @@ import flowgentic.metrics as fg_metrics
 from state import PipelineState
 from stages import design, dock, export, fold, geometry, rosetta, score_designs, select
 
-CONFIG_PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else FLOWGENTIC_DIR / "config" / "config.json"
+CONFIG_PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else ADAPTED_DIR / "config" / "config.json"
 
-# Where .env lives differs between the local repo (demos/cnio/.env, three parents above
-# this file's own flowgentic/ dir) and the cluster deployment (isolation/ collapses
-# demos/cnio/e2e into one directory, so the local path's parent count does not apply there).
+# Where .env lives differs between the local repo (cnio_usecase/.env, three parents above
+# this file's own adapted/ dir) and the cluster deployment (isolation/ collapses
+# e2e into one directory, so the local path's parent count does not apply there).
 # FLOWGENTIC_ENV_FILE lets the launcher (run_sbatch.sh) say exactly where it put the file
 # instead of this script guessing a relative path that is only correct in one of the two
 # places it runs. load_dotenv() is a no-op if the resolved path does not exist, so an unset
 # variable and a missing local .env both silently mean "no Discord notifications" -- exactly
 # like having never set DISCORD_WEBHOOK_URL at all.
 ENV_PATH = Path(os.environ["FLOWGENTIC_ENV_FILE"]) if os.environ.get("FLOWGENTIC_ENV_FILE") \
-    else FLOWGENTIC_DIR.parent.parent.parent / ".env"
+    else ADAPTED_DIR.parent.parent.parent / ".env"
 load_dotenv(ENV_PATH)
 
 
 def _load_config() -> dict:
     cfg = json.loads(CONFIG_PATH.read_text())
     if not cfg.get("out_dir"):
-        cfg["out_dir"] = str(FLOWGENTIC_DIR / "_scratch" / "cageflow_out")
+        cfg["out_dir"] = str(ADAPTED_DIR / "_scratch" / "cageflow_out")
     return cfg
 
 

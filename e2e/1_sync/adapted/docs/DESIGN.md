@@ -1,6 +1,6 @@
 # Track B: AsyncFlow owns the DAG
 
-This is the design for `1_sync/flowgentic/` — the AsyncFlow-driven twin of `1_sync/original/`
+This is the design for `1_sync/adapted/` — the AsyncFlow-driven twin of `1_sync/original/`
 (her plain `run_cage_flow()`, now Track A, the fixed point everything here is diffed against).
 
 **Who this is for.** As of 2026-10-16, Laura is maintaining this file going forward, not just us

@@ -3,8 +3,6 @@ name = "cnio_usecase"
 version = "0.1.0"
 description = "CNIO CageFlow pipeline: the domain-specific glue, stages, and configs that run on top of flowgentic"
 readme = "README.md"
-# Pinned to match flowgentic's own constraint -- this code runs in the same IE cluster
-# EESSI venv (Python 3.11.3/3.11.4) as the flowgentic package it depends on.
 requires-python = ">=3.11"
 
 dependencies = [
