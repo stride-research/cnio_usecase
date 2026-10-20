@@ -1,0 +1,44 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+
+# Secrets — never commit
+.env
+.env.*
+*.env
+# ...except the committed template documenting which vars exist. Must come after the
+# patterns above, and must re-whitelist explicitly: `.env.*` would otherwise swallow
+# `.env.example` itself.
+!.env.example
+!**/.env.example
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+
+# Run artifacts (ad-hoc runs, not the parity baseline below)
+runs/
+slurm_logs/
+reports/
+*.jsonl
+
+# ...but the Track A/B parity evidence is not disposable run output -- it's the baseline
+# the CI parity gate diffs against. See e2e/1_sync/PARITY_REPORT.md.
+!e2e/1_sync/original/results/
+!e2e/1_sync/original/results/*.jsonl
+!e2e/1_sync/flowgentic/results/
+!e2e/1_sync/flowgentic/results/*.jsonl

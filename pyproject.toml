@@ -1,0 +1,20 @@
+[project]
+name = "cnio_usecase"
+version = "0.1.0"
+description = "CNIO CageFlow pipeline: the domain-specific glue, stages, and configs that run on top of flowgentic"
+readme = "README.md"
+# Pinned to match flowgentic's own constraint -- this code runs in the same IE cluster
+# EESSI venv (Python 3.11.3/3.11.4) as the flowgentic package it depends on.
+requires-python = ">=3.11"
+
+dependencies = [
+    # Pinned to the branch flowgentic is actively developed on for stage 1. Bump this
+    # pin deliberately when flowgentic cuts a release tag -- do not float on a branch
+    # name forever.
+    "flowgentic[demos] @ git+https://github.com/stride-research/flowgentic.git@feat/cnio-naive-pipeline",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
