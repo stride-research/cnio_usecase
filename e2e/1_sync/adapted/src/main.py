@@ -150,7 +150,8 @@ def _load_config() -> dict:
         "colabfold_bin": str(colabfold_dir / "colabfold-conda" / "bin" / "colabfold_batch"),
         "colabfold_data": str(colabfold_dir / "colabfold"),
         "colabfold_python": str(colabfold_dir / "colabfold-conda" / "bin" / "python"),
-        "out_dir": str(ADAPTED_DIR / "_scratch" / "cageflow_out"),
+        # No nested "cageflow_out" -- nothing else lives alongside it at this level.
+        "out_dir": str(ADAPTED_DIR / "results"),
     })
     return cfg
 

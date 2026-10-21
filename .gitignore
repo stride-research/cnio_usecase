@@ -30,15 +30,15 @@ htmlcov/
 # OS
 .DS_Store
 
-# Run artifacts (ad-hoc runs, not the parity baseline below)
+# Run artifacts (ad-hoc runs, not committed -- see e2e/1_sync/PARITY_REPORT.md for how
+# to reproduce parity directly against the cluster instead of trusting a frozen copy).
+# Was briefly committed as a "frozen baseline" under this same path; that copy went
+# stale (held pre-PYTHONPATH-fix numbers) and nothing caught it, which is exactly the
+# risk of committing large generated output -- removed, not just going forward but
+# retroactively, in favor of re-running when parity needs re-checking.
 runs/
 slurm_logs/
 reports/
 *.jsonl
-
-# ...but the Track A/B parity evidence is not disposable run output -- it's the baseline
-# the CI parity gate diffs against. See e2e/1_sync/PARITY_REPORT.md.
-!e2e/1_sync/original/results/
-!e2e/1_sync/original/results/*.jsonl
-!e2e/1_sync/adapted/results/
-!e2e/1_sync/adapted/results/*.jsonl
+e2e/1_sync/original/results/
+e2e/1_sync/adapted/results/

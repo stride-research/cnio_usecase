@@ -32,8 +32,9 @@ _DEPLOYMENT_PATH_OVERRIDES = {
     "colabfold_data": str(COLABFOLD_DIR / "colabfold"),
     "colabfold_python": str(COLABFOLD_DIR / "colabfold-conda" / "bin" / "python"),
     # Relative to this file's own location, not $HOME -- correct regardless of which
-    # directory name this repo gets cloned into.
-    "out_dir": str(Path(__file__).resolve().parent / "_scratch" / "cageflow_out"),
+    # directory name this repo gets cloned into. No nested "cageflow_out" -- nothing
+    # else lives alongside it at this level, so the extra directory bought nothing.
+    "out_dir": str(Path(__file__).resolve().parent / "results"),
 }
 
 

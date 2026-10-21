@@ -1,5 +1,20 @@
 # Track A vs Track B: parity report
 
+**UPDATE 2026-10-21: re-verified after the cnio_usecase split, full git-based cluster
+deployment, and the venv-rename bug fix — parity still holds, and `results/` is no
+longer committed.** Jobs 24292 (Track A, `wall_s=542`) and 24293 (Track B, `wall_s=206`)
+reproduce the exact same numbers as the 2026-10-20 run below
+(`group_ddG` -56.293125 / 1132.880384, identical fold/geometry/MPNN metrics field-for-
+field). `qualifying_sequences.csv` is byte-identical between the two fresh runs;
+`history.jsonl` matches field-for-field after normalizing timestamps/hostnames/pids
+(the only textual difference is `pdb_path` containing `original` vs `adapted`, expected).
+**`results/` under each track is now gitignored, not committed** — the copy that used to
+be committed here had gone stale (it held the pre-PYTHONPATH-fix numbers,
+`-38.354002`/`1148.195822`, with nothing catching the drift), which is exactly the
+failure mode of committing large generated output as a "frozen baseline." To verify
+parity going forward, re-run both tracks (`sbatch run_sbatch.sh` in each track's
+directory) and diff the fresh output directly, rather than trusting a committed copy.
+
 **Scope.** Does replacing CageFlow's `Executor`/`Budget` with an AsyncFlow + Dragon
 orchestrator (Track B, `adapted/`) change the science, relative to calling her documented
 stage functions directly in her original sequential order (Track A, `original/`)? Both tracks

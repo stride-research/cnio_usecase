@@ -39,7 +39,7 @@ python3 -m pip install --no-deps --quiet -e "$FLOWGENTIC_PKG" python-dotenv
 # out_dir is no longer a config.json key (main.py's _load_config() computes it itself,
 # same formula, at runtime) -- computed here directly instead of reading a key that's
 # deliberately no longer there.
-OUT_DIR="$FG_DIR/_scratch/cageflow_out"
+OUT_DIR="$FG_DIR/results"
 mkdir -p "$OUT_DIR"
 cp "$CONFIG" "$OUT_DIR/config.used.json"
 
