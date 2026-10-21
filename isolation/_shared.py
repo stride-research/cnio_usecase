@@ -187,9 +187,12 @@ def load_config(caller_file: str, base: str = DEFAULT_BASE_CONFIG, **overrides) 
 
     Args:
         caller_file: pass `__file__` from the calling main.py.
-        base: filename under CageFlow's configs/ to start from. Defaults
-            to the lightweight probe config; pass e.g.
-            "config.1c5e_noflip.json" for the full-scale one she handed us.
+        base: filename to start from. Defaults to our own lightweight probe
+            config (lives in this directory -- it's ours, not Laura's, and
+            was previously hand-placed inside her CageFlow checkout, which
+            broke the moment that repo got re-cloned fresh). Pass e.g.
+            "config.1c5e_noflip.json" for one of Laura's own full-scale
+            configs instead, which load from CageFlow's own configs/.
         **overrides: Keys to override on top of that base config (e.g.
             max_materialized=1 to stop a stage after one real candidate).
 
@@ -197,7 +200,9 @@ def load_config(caller_file: str, base: str = DEFAULT_BASE_CONFIG, **overrides) 
         The merged config dict, with scaffold_pdb and out_dir made
         absolute so the script's behavior doesn't depend on cwd.
     """
-    base = json.loads((CAGEFLOW_DIR / "configs" / base).read_text())
+    base_path = (Path(__file__).resolve().parent / base if base == DEFAULT_BASE_CONFIG
+                 else CAGEFLOW_DIR / "configs" / base)
+    base = json.loads(base_path.read_text())
     base["cage_designer_path"] = CAGE_DESIGNER_PATH
     base["mpnn_dir"] = MPNN_DIR
     base["colabfold_bin"] = COLABFOLD_BIN

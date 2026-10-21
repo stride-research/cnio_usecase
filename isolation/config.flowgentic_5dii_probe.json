@@ -1,0 +1,38 @@
+{
+    "_README": "Our frozen probe-scale base config for _shared.py's load_config(). Lives here, not in CageFlow/configs/, because it's ours, not Laura's -- it was previously hand-placed inside her checkout and never committed there, which broke the moment CageFlow got re-cloned fresh. cage_designer_path/mpnn_dir/colabfold_* below are dead weight: load_config() unconditionally overrides them with Path.home()-derived values regardless of what's here. scaffold_pdb stays relative (resolved against CAGEFLOW_DIR by load_config()).",
+
+    "scaffold_pdb": "scaffolds/5dii_trimer.pdb",
+    "symmetry": "T",
+
+    "dock_ranges": { "radius_step": 0.5, "spin_step": 1.0 },
+    "max_materialized": 4,
+    "n_docks": 2,
+    "flip": false,
+    "select_by": "cbeta",
+
+    "clash_dist": 3.0,
+    "contact_dist": 12.0,
+    "min_contacts": 3,
+
+    "num_seq_per_target": 2,
+    "mpnn_force_cpu": true,
+    "mpnn_threads": 6,
+
+    "postredesign_selection_method": "top_n",
+    "postredesign_selection_top_n": 2,
+
+    "rosetta_score_cutoff": 2.0,
+    "rosetta_chi_min": true,
+    "rosetta_seed": 20260831,
+    "thread_mode": "replace",
+
+    "fold_oligomers": true,
+    "fold_unit": "oligomer",
+    "restore_native_gaps": false,
+    "fold_msa_mode": "mmseqs2_uniref_env",
+    "fold_model_type": "alphafold2_multimer_v3",
+    "fold_num_models": 1,
+    "fold_num_recycle": 3,
+    "fold_seed": 20260831,
+    "fold_timeout_s": 3600
+}
