@@ -21,7 +21,10 @@ CONFIG="$REF_DIR/config.json"
 # context/current-implementation.md "UPDATE 2026-10-20" for why that matters.
 source ~/.venvs/cnio_usecase/bin/activate
 
-OUT_DIR="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['out_dir'])" "$CONFIG")"
+# out_dir is no longer a config.json key (run_original.py computes it itself, same
+# formula, at runtime) -- computed here directly instead of reading a key that's
+# deliberately no longer there.
+OUT_DIR="$REF_DIR/_scratch/cageflow_out"
 mkdir -p "$OUT_DIR"
 cp "$CONFIG" "$OUT_DIR/config.used.json"
 
