@@ -20,7 +20,7 @@ CONFIG="$FG_DIR/config/config.json"
 
 # Self-contained venv: no `module load`, so PYTHONPATH is never set. See
 # context/current-implementation.md "UPDATE 2026-10-20" for why that matters.
-source ~/.venvs/asyncflow/bin/activate
+source ~/.venvs/cnio_usecase/bin/activate
 export PYTHONUNBUFFERED=1
 
 # .env lives 3 parents up locally but the cluster deployment collapses that path, so it's

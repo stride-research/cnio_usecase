@@ -18,7 +18,7 @@ exist to run in exactly one place: the IE cluster, never locally.
 Every `run.sh` does the identical two lines before running `main.py`:
 
     module load PyTorch/2.1.2-foss-2023a
-    source ~/venvs/cageflow_unified/bin/activate
+    source ~/.venvs/cnio_usecase/bin/activate
 
 `module load` alone gives a working numpy/pandas/torch (needed because
 CageFlow.py imports pandas transitively via history_table.py). The venv

@@ -17,7 +17,7 @@ CONFIG="$REF_DIR/config.json"
 
 # Self-contained venv: no `module load`, so PYTHONPATH is never set. See
 # context/current-implementation.md "UPDATE 2026-10-20" for why that matters.
-source ~/.venvs/asyncflow/bin/activate
+source ~/.venvs/cnio_usecase/bin/activate
 
 OUT_DIR="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['out_dir'])" "$CONFIG")"
 mkdir -p "$OUT_DIR"
