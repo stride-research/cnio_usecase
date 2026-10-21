@@ -7,12 +7,14 @@
 #SBATCH --mem=32G
 #SBATCH -t 01:00:00
 #SBATCH -J cf_original
-#SBATCH -o /home/javidsegura/software/isolation/1_sync/original/sbatch.out
-#SBATCH -e /home/javidsegura/software/isolation/1_sync/original/sbatch.err
+# Relative, not absolute: SBATCH directives aren't shell-expanded, so $HOME/~ don't
+# resolve here. Relies on sbatch being submitted from this directory (cwd).
+#SBATCH -o sbatch.out
+#SBATCH -e sbatch.err
 
 set -euo pipefail
 
-REF_DIR="/home/javidsegura/software/isolation/1_sync/original"
+REF_DIR="$HOME/software/cnio_usecase/e2e/1_sync/original"
 CONFIG="$REF_DIR/config.json"
 
 # Self-contained venv: no `module load`, so PYTHONPATH is never set. See

@@ -10,12 +10,14 @@
 #SBATCH -c 8
 #SBATCH -t 00:30:00
 #SBATCH -J cf_adapted
-#SBATCH -o /home/javidsegura/software/isolation/1_sync/adapted/sbatch.out
-#SBATCH -e /home/javidsegura/software/isolation/1_sync/adapted/sbatch.err
+# Relative, not absolute: SBATCH directives aren't shell-expanded, so $HOME/~ don't
+# resolve here. Relies on sbatch being submitted from this directory (cwd).
+#SBATCH -o sbatch.out
+#SBATCH -e sbatch.err
 
 set -euo pipefail
 
-FG_DIR="/home/javidsegura/software/isolation/1_sync/adapted"
+FG_DIR="$HOME/software/cnio_usecase/e2e/1_sync/adapted"
 CONFIG="$FG_DIR/config/config.json"
 
 # Self-contained venv: no `module load`, so PYTHONPATH is never set. See
@@ -23,14 +25,15 @@ CONFIG="$FG_DIR/config/config.json"
 source ~/.venvs/cnio_usecase/bin/activate
 export PYTHONUNBUFFERED=1
 
-# .env lives 3 parents up locally but the cluster deployment collapses that path, so it's
-# pointed at explicitly rather than guessed. Missing file = no-op (Discord notifs just stay off).
-export FLOWGENTIC_ENV_FILE="/home/javidsegura/software/isolation/.env"
+# .env lives at the repo root -- pointed at explicitly rather than guessed, since this
+# file is gitignored and never deployed by a plain git clone on its own. Missing file =
+# no-op (Discord notifs just stay off).
+export FLOWGENTIC_ENV_FILE="$HOME/software/cnio_usecase/.env"
 
 # Dragon children must `import flowgentic` to deserialize their tasks (cloudpickle ships by
 # reference), so it has to be on site-packages, not just sitting next to this script.
 # --no-deps: flowgentic is stdlib-only; don't let pip's resolver touch anything else pinned.
-FLOWGENTIC_PKG="/home/javidsegura/software/flowgentic"
+FLOWGENTIC_PKG="$HOME/software/flowgentic"
 python3 -m pip install --no-deps --quiet -e "$FLOWGENTIC_PKG" python-dotenv
 
 OUT_DIR="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['out_dir'])" "$CONFIG")"

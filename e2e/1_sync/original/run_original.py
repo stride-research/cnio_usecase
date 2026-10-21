@@ -9,14 +9,37 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/home/javidsegura/software/CageFlow")
+# HOME-relative, not a literal username, so this runs under anyone's own account on
+# this cluster (e.g. Laura's) -- same pattern isolation/_shared.py already uses.
+HOME = Path.home()
+CAGEFLOW_DIR = HOME / "software" / "CageFlow"
+COLABFOLD_DIR = HOME / "software" / "localcolabfold_install" / "localcolabfold"
+
+sys.path.insert(0, str(CAGEFLOW_DIR))
 import CageFlow  # noqa: E402
 
 CONFIG_PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent / "config.json"
 
+# Deployment-location keys get resolved fresh here rather than trusted verbatim from
+# the committed config.json, so the same file works regardless of whose $HOME it's
+# running under. Science parameters (everything else in config.json) are untouched.
+_DEPLOYMENT_PATH_OVERRIDES = {
+    "cageflow_dir": str(CAGEFLOW_DIR),
+    "cage_designer_path": str(HOME / "software" / "ProteinBuilder"),
+    "mpnn_dir": str(HOME / "software" / "ProteinMPNN"),
+    "scaffold_pdb": str(CAGEFLOW_DIR / "scaffolds" / "5dii_trimer.pdb"),
+    "colabfold_bin": str(COLABFOLD_DIR / "colabfold-conda" / "bin" / "colabfold_batch"),
+    "colabfold_data": str(COLABFOLD_DIR / "colabfold"),
+    "colabfold_python": str(COLABFOLD_DIR / "colabfold-conda" / "bin" / "python"),
+    # Relative to this file's own location, not $HOME -- correct regardless of which
+    # directory name this repo gets cloned into.
+    "out_dir": str(Path(__file__).resolve().parent / "_scratch" / "cageflow_out"),
+}
+
 
 def main():
     config = json.loads(CONFIG_PATH.read_text())
+    config.update(_DEPLOYMENT_PATH_OVERRIDES)
     out_dir = Path(config.get("out_dir", "cageflow_output"))
     out_dir.mkdir(parents=True, exist_ok=True)
 

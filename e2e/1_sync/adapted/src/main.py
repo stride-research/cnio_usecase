@@ -118,23 +118,40 @@ from stages import design, dock, export, fold, geometry, rosetta, score_designs,
 
 CONFIG_PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else ADAPTED_DIR / "config" / "config.json"
 
-# Where .env lives differs between the local repo (cnio_usecase/.env, three parents above
-# this file's own adapted/ dir) and the cluster deployment (isolation/ collapses
-# e2e into one directory, so the local path's parent count does not apply there).
-# FLOWGENTIC_ENV_FILE lets the launcher (run_sbatch.sh) say exactly where it put the file
-# instead of this script guessing a relative path that is only correct in one of the two
-# places it runs. load_dotenv() is a no-op if the resolved path does not exist, so an unset
-# variable and a missing local .env both silently mean "no Discord notifications" -- exactly
-# like having never set DISCORD_WEBHOOK_URL at all.
+# .env lives at the repo root (three parents above this file's own adapted/ dir), and
+# that's now true identically on the cluster since it's a plain git clone of this same
+# repo -- no path collapsing to work around any more. FLOWGENTIC_ENV_FILE still lets
+# run_sbatch.sh say exactly where it put the file, as an explicit, defensive override
+# rather than relying on this computed fallback matching in every deployment.
+# load_dotenv() is a no-op if the resolved path does not exist, so an unset variable and
+# a missing local .env both silently mean "no Discord notifications" -- exactly like
+# having never set DISCORD_WEBHOOK_URL at all.
 ENV_PATH = Path(os.environ["FLOWGENTIC_ENV_FILE"]) if os.environ.get("FLOWGENTIC_ENV_FILE") \
     else ADAPTED_DIR.parent.parent.parent / ".env"
 load_dotenv(ENV_PATH)
 
 
 def _load_config() -> dict:
+    """Load config.json, then overwrite the deployment-location keys with
+    HOME-relative values -- same pattern as isolation/_shared.py and
+    ../original/run_original.py -- so the committed file works regardless of whose
+    $HOME it runs under. Science parameters (everything else in config.json) are
+    passed through untouched.
+    """
     cfg = json.loads(CONFIG_PATH.read_text())
-    if not cfg.get("out_dir"):
-        cfg["out_dir"] = str(ADAPTED_DIR / "_scratch" / "cageflow_out")
+    home = Path.home()
+    cageflow_dir = home / "software" / "CageFlow"
+    colabfold_dir = home / "software" / "localcolabfold_install" / "localcolabfold"
+    cfg.update({
+        "cageflow_dir": str(cageflow_dir),
+        "cage_designer_path": str(home / "software" / "ProteinBuilder"),
+        "mpnn_dir": str(home / "software" / "ProteinMPNN"),
+        "scaffold_pdb": str(cageflow_dir / "scaffolds" / "5dii_trimer.pdb"),
+        "colabfold_bin": str(colabfold_dir / "colabfold-conda" / "bin" / "colabfold_batch"),
+        "colabfold_data": str(colabfold_dir / "colabfold"),
+        "colabfold_python": str(colabfold_dir / "colabfold-conda" / "bin" / "python"),
+        "out_dir": str(ADAPTED_DIR / "_scratch" / "cageflow_out"),
+    })
     return cfg
 
 
