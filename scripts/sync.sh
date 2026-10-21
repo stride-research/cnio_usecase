@@ -12,6 +12,7 @@ set -euo pipefail
 CNIO_USECASE_DIR="$HOME/software/cnio_usecase"
 FLOWGENTIC_DIR="$HOME/software/flowgentic"
 VENV="$HOME/.venvs/cnio_usecase"
+SELF="$CNIO_USECASE_DIR/scripts/sync.sh"
 
 sync_repo() {
     local dir="$1" label="$2" branch old new
@@ -28,7 +29,20 @@ sync_repo() {
     fi
 }
 
+# Bash buffers/reads this script as it goes, so if `sync_repo` below rewrites this
+# very file out from under itself (it's part of the repo being reset), the already-
+# running process keeps executing the OLD in-memory version for the rest of its life
+# -- any change to sync.sh would silently take one extra run to actually apply. Hash
+# before/after and re-exec into the fresh copy if it moved, so a change to this
+# script takes effect on the same run that pulled it, not the next one.
+_self_before="$(md5sum "$SELF" 2>/dev/null || true)"
 sync_repo "$CNIO_USECASE_DIR" "cnio_usecase"
+_self_after="$(md5sum "$SELF" 2>/dev/null || true)"
+if [ "$_self_before" != "$_self_after" ]; then
+    echo "[cnio_usecase] sync.sh itself changed -- re-running the updated version"
+    exec bash "$SELF"
+fi
+
 sync_repo "$FLOWGENTIC_DIR" "flowgentic"
 
 # Always re-run, even if flowgentic's commit didn't move -- cheap (a few seconds),
