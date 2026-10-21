@@ -3,7 +3,6 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-module load PyTorch/2.1.2-foss-2023a
 source ~/.venvs/cnio_usecase/bin/activate
 
 # Chains the WHOLE pipeline (dock -> ... -> rosetta -> fold) for real, so

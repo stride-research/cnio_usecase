@@ -15,21 +15,30 @@ exist to run in exactly one place: the IE cluster, never locally.
 
 ## One environment, every step
 
-Every `run.sh` does the identical two lines before running `main.py`:
+Every `run.sh` does one line before running `main.py`:
 
-    module load PyTorch/2.1.2-foss-2023a
     source ~/.venvs/cnio_usecase/bin/activate
 
-`module load` alone gives a working numpy/pandas/torch (needed because
-CageFlow.py imports pandas transitively via history_table.py). The venv
-on top adds PyRosetta -- `python3 -m venv --system-site-packages` seeded
-from that module-loaded interpreter, then `pip install pyrosetta`. Before
-this venv existed, PyRosetta only lived in a separate, incompatible venv
-(broken numpy, wrong CPU SIMD baseline), which forced score_with_rosetta's
+That venv is fully self-contained (numpy, scipy, pandas, torch, PyRosetta
+all installed directly into it) -- no `module load` before it, and none
+needed. This used to be a two-step dance: `module load
+PyTorch/2.1.2-foss-2023a` for numpy/pandas/torch (CageFlow.py imports
+pandas transitively via history_table.py), then a `--system-site-packages`
+venv layered on top just for PyRosetta. That split existed because
+PyRosetta used to only live in a separate, incompatible venv (broken
+numpy, wrong CPU SIMD baseline), which forced score_with_rosetta's
 isolation step onto a different Python than everyone else and made it
-skip CageFlow.py/config entirely. One venv, used by every step whether it
-needs PyRosetta or not, means there is exactly one environment-setup
-incantation in this whole folder, not two.
+skip CageFlow.py/config entirely.
+
+Dropping `module load` is not just tidiness: EESSI delivers the module's
+packages by injecting `PYTHONPATH`, which silently shadows a venv's own
+numpy/torch if both are present at once -- the exact bug that cost a full
+day to root-cause on the e2e side (see fold.py's `os.environ.pop` comment
+in ../e2e/1_sync/adapted/). Isolation's old module+venv combination had
+the same latent exposure; `python3 7_fold_oligomer/main.py`'s own
+`os.environ.pop("PYTHONPATH", None)` was quietly load-bearing for exactly
+that reason until `module load` was removed here. It stays in main.py as
+a harmless no-op now, matching the same call in fold.py.
 
 There is no such thing as a "step-only" config in CageFlow. Every stage
 function -- dock_oligomer, evaluate_geometry, select_top_docks,

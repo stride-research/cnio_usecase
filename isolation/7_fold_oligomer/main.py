@@ -36,7 +36,9 @@ rosetta_scores = CageFlow.score_with_rosetta(
 check("at least one dock has Rosetta scores to rank fold candidates by",
       len(rosetta_scores) > 0, f"got {len(rosetta_scores)}")
 
-
+# No-op now that run.sh no longer does `module load` before activating the venv (see
+# _shared.py's module docstring) -- kept anyway, matching fold.py's same call in
+# ../../e2e/1_sync/adapted/src/stages/fold.py, in case that ever changes again.
 os.environ.pop("PYTHONPATH", None)
 
 fold_results = CageFlow.fold_oligomer(
