@@ -39,3 +39,13 @@ sync_repo "$FLOWGENTIC_DIR" "flowgentic"
 source "$VENV/bin/activate"
 python3 -m pip install --no-deps --quiet -e "$FLOWGENTIC_DIR"
 echo "[flowgentic] editable install refreshed"
+
+# .env is gitignored on purpose (it's a secret -- DISCORD_WEBHOOK_URL), so it never
+# comes along on a fresh clone and this sync can't restore it even if it wanted to.
+# Local and cluster deliberately keep independent .env files (see main.py's own
+# comment on FLOWGENTIC_ENV_FILE) -- this is just a heads-up so a missing file doesn't
+# show up later as "why did Discord notifications silently stop," which is exactly
+# what a missing .env looks like (load_dotenv() no-ops on a missing path).
+if [ ! -f "$CNIO_USECASE_DIR/.env" ]; then
+    echo "[cnio_usecase] WARNING: .env not found at $CNIO_USECASE_DIR/.env -- Discord notifications will stay silently disabled until you create one from .env.example"
+fi
