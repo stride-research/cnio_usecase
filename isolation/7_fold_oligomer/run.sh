@@ -7,4 +7,7 @@ source ~/.venvs/cnio_usecase/bin/activate
 
 # Chains the WHOLE pipeline (dock -> ... -> rosetta -> fold) for real, so
 # generous wall time: Rosetta scoring alone is ~134s/sequence.
-srun -A stride -p gpu --gres=gpu:rtx6000ada:1 -c 4 --mem=16G -t 00:30:00 python3 main.py
+# biostructure-fortran, not the general gpu partition: same account/partition e2e's
+# own run_sbatch.sh already uses successfully, 2 cards, far less contended than the
+# shared general gpu queue. Card model is rtx6000bb here, not rtx6000ada.
+srun -A biostructure -p biostructure-fortran --gres=gpu:rtx6000bb:1 -c 4 --mem=16G -t 00:30:00 python3 main.py
