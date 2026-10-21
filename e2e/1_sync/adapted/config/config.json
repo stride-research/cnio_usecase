@@ -1,10 +1,6 @@
 {
-    "_README": "Our frozen, bare-minimum 5dii config. Derived from her configs/config.reference_5dii.short.json (0d1650a), but small/cheap (probe-scale, not the representative 'big' config) and with every key that was implicit made explicit -- see 2_async plan Phase 1.1. Used by Track A (../original/config.json) and Track B (this file) equally so parity has a fixed point. Carried forward from the now-deleted demos/cnio/configs/flowgentic_5dii.json, which was never read by any code.",
-    "scaffold_pdb": "/home/javidsegura/software/CageFlow/scaffolds/5dii_trimer.pdb",
+    "_README": "Our frozen, bare-minimum 5dii config. Derived from her configs/config.reference_5dii.short.json (0d1650a), but small/cheap (probe-scale, not the representative 'big' config) and with every key that was implicit made explicit -- see 2_async plan Phase 1.1. Used by Track A (../original/config.json) and Track B (this file) equally so parity has a fixed point. Carried forward from the now-deleted demos/cnio/configs/flowgentic_5dii.json, which was never read by any code. Deployment-location keys (cageflow_dir, cage_designer_path, mpnn_dir, scaffold_pdb, colabfold_*, out_dir) are deliberately absent -- main.py's _load_config() overrides them with Path.home()-derived values at runtime, so a value here would be silently ignored.",
     "symmetry": "T",
-    "cage_designer_path": "/home/javidsegura/software/ProteinBuilder",
-    "cageflow_dir": "/home/javidsegura/software/CageFlow",
-    "mpnn_dir": "/home/javidsegura/software/ProteinMPNN",
 
     "dock_ranges": { "radius_step": 0.5, "spin_step": 1.0 },
     "max_materialized": 4,
@@ -36,10 +32,5 @@
     "fold_num_models": 1,
     "fold_num_recycle": 3,
     "fold_seed": 20260831,
-    "fold_timeout_s": 3600,
-    "colabfold_bin": "/home/javidsegura/software/localcolabfold_install/localcolabfold/colabfold-conda/bin/colabfold_batch",
-    "colabfold_data": "/home/javidsegura/software/localcolabfold_install/localcolabfold/colabfold",
-    "colabfold_python": "/home/javidsegura/software/localcolabfold_install/localcolabfold/colabfold-conda/bin/python",
-
-    "out_dir": "/home/javidsegura/software/isolation/1_sync_flowgentic/_scratch/cageflow_out"
+    "fold_timeout_s": 3600
 }

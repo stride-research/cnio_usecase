@@ -40,7 +40,7 @@ _DEPLOYMENT_PATH_OVERRIDES = {
 def main():
     config = json.loads(CONFIG_PATH.read_text())
     config.update(_DEPLOYMENT_PATH_OVERRIDES)
-    out_dir = Path(config.get("out_dir", "cageflow_output"))
+    out_dir = Path(config["out_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
 
     result = CageFlow.run_cage_flow(config)
