@@ -184,24 +184,35 @@ async def main():
     # names it once and never expresses the order itself).
     from pipeline import cageflow
 
-    await cageflow(handle)
+    # Everything from here down is wrapped: a crash in cageflow() itself, or in the
+    # wrap-up below it, previously propagated silently -- run_finished() only fires
+    # on a successful return, so nothing ever posted and flow.shutdown() never ran
+    # either. Now: notify, re-raise (Slurm still sees the real nonzero exit and
+    # sbatch.err still gets the full traceback -- this adds a notification, it does
+    # not swallow the crash), and always shut the engine down.
+    try:
+        await cageflow(handle)
 
-    # ------------------------------------------------------------- wrap up
-    table = CageFlow.build_sequence_table(out_dir)
-    table.to_csv(out_dir / "qualifying_sequences.csv", index=False)
-    CageFlow.style_sequence_table(table).to_html(out_dir / "qualifying_sequences.html")
+        # --------------------------------------------------------- wrap up
+        table = CageFlow.build_sequence_table(out_dir)
+        table.to_csv(out_dir / "qualifying_sequences.csv", index=False)
+        CageFlow.style_sequence_table(table).to_html(out_dir / "qualifying_sequences.html")
 
-    stats = fg_metrics.compute_stats(metrics_dir)
-    (out_dir / "compute_stats.json").write_text(json.dumps(stats, indent=2))
+        stats = fg_metrics.compute_stats(metrics_dir)
+        (out_dir / "compute_stats.json").write_text(json.dumps(stats, indent=2))
 
-    n_qualifying = max(0, len(table.index))
-    funnel = _funnel(out_dir, stats)
-    funnel["exported"] = n_qualifying
+        n_qualifying = max(0, len(table.index))
+        funnel = _funnel(out_dir, stats)
+        funnel["exported"] = n_qualifying
 
-    fg_discord.run_finished(
-        job_id=job_id, wall_s=time.monotonic() - t0, funnel=funnel, out_dir=out_dir)
-
-    await flow.shutdown()
+        fg_discord.run_finished(
+            job_id=job_id, wall_s=time.monotonic() - t0, funnel=funnel, out_dir=out_dir)
+    except Exception as exc:
+        fg_discord.run_failed(
+            job_id=job_id, error=f"{type(exc).__name__}: {exc}", out_dir=out_dir)
+        raise
+    finally:
+        await flow.shutdown()
 
 
 if __name__ == "__main__":
