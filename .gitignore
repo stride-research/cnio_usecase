@@ -42,4 +42,3 @@ reports/
 *.jsonl
 e2e/1_sync/original/results/
 e2e/1_sync/adapted/results/
-e2e/1_sync/temp/results/
