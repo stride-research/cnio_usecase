@@ -1,23 +1,27 @@
 """Geometry stage: evaluates clash/contact geometry for every docked oligomer,
-produces state.geometries, and writes history records for docks that fail the gate.
+produces geometries, and writes history records for docks that fail the gate.
+
+cross_contact_dist / cross_clash_dist are read off handle.config, where main.py
+resolved them from CageFlow's own defaults IN THE PARENT -- a worker body must
+never reach for CageFlow.DEFAULT_CROSS_CONTACT_DIST itself (that reference, for
+one float, hung every run through job 24049: the module pickles by reference
+and the Dragon child cannot import it back).
 """
 from __future__ import annotations
 
 import logging
 
-import flowgentic.metrics as fg
 
-from state import PipelineState
-
-
-async def run(flow, config: dict, cage_designer_path: str, out_dir, state: PipelineState,
-               cross_contact_dist: float, cross_clash_dist: float) -> PipelineState:
+async def geometry(handle, docked_oligomers):
     import CageFlow
     import records
 
-    docked_oligomers = state.docked_oligomers
+    config, out_dir = handle.config, handle.out_dir
+    cage_designer_path = config["cage_designer_path"]
+    cross_contact_dist = config["cross_contact_dist"]
+    cross_clash_dist = config["cross_clash_dist"]
 
-    @fg.task(flow, name="evaluate_geometry", description="Clash/contact geometry evaluation")
+    @handle.worker(name="evaluate_geometry", description="Clash/contact geometry evaluation")
     async def task_geometry(docked_oligomers: list[dict]):
         from CageFlow import _evaluate_one_geometry
         from records import is_two_component
@@ -63,5 +67,4 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
                 out_dir, records.dock_outcome(i, docked_oligomers[i], g, status="geometry_failed"))
     logging.info(f"[geometry] {n_passed}/{len(geometries)} passed")
 
-    state.geometries = geometries
-    return state
+    return geometries

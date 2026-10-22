@@ -1,5 +1,5 @@
 """Rosetta stage: scores each cleared-cutoff sequence with Rosetta, per dock, producing
-state.rosetta_scores.
+rosetta_scores.
 
 Line-for-line port of score_with_rosetta()'s pre/post-dispatch body (CageFlow.py:2382-2621)
 -- NOT a reconstruction from memory. An earlier draft of this file rebuilt the aggregation
@@ -13,19 +13,13 @@ import asyncio
 import json
 import logging
 
-import flowgentic.metrics as fg
-
-from state import PipelineState
 
 
-async def run(flow, config: dict, cage_designer_path: str, out_dir, state: PipelineState) -> PipelineState:
+async def rosetta(handle, docked_oligomers, geometries, designed_oligomers, scored_designs):
     import CageFlow
     import records
 
-    docked_oligomers = state.docked_oligomers
-    geometries = state.geometries
-    designed_oligomers = state.designed_oligomers
-    scored_designs = state.scored_designs
+    config, out_dir = handle.config, handle.out_dir
 
     # ============================================================================ rosetta ===
     # This whole block is a line-for-line port of score_with_rosetta()'s pre/post-dispatch
@@ -111,7 +105,7 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
           f"(of {n_designed} total designed"
           f"{f'; {len(duplicate_of)} duplicate(s) reused, not rescored' if duplicate_of else ''})")
 
-    @fg.task(flow, name="score_with_rosetta",
+    @handle.worker(name="score_with_rosetta",
              description="Rosetta interface scoring for one cleared-cutoff sequence")
     async def task_rosetta(dock_index: int, list_index: int, docked_oligomer: dict, seq: str,
                            pre: dict):
@@ -173,5 +167,4 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
                 "rosetta_relax": relax, "thread_mode": thread_mode,
             }))
 
-    state.rosetta_scores = rosetta_scores
-    return state
+    return rosetta_scores

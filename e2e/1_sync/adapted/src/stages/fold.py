@@ -1,30 +1,30 @@
 """Fold stage: predicts structure with ColabFold for each selected designed sequence,
-producing state.fold_results.
+producing fold_results.
 
 Line-for-line port of fold_oligomer()'s body (CageFlow.py:3375-3583). An earlier draft of
 this file passed ProteinMPNN's raw "/"-joined multi-chain string straight to ColabFold --
 exactly the documented production failure in her own docstring (run 9759319: "Invalid
 character in the sequence: /", 3 minutes wasted fetching an MSA first).
 _oligomer_chain_seq's one-chain extraction below is not optional.
+
+No PYTHONPATH handling here on purpose: the earlier `os.environ.pop("PYTHONPATH",
+None)` before the ColabFold subprocess calls was a workaround for `module load`
+injecting PYTHONPATH, which silently fed a wrong MSA to the predictor. Both
+tracks dropped `module load` for a self-contained venv (CLAUDE.md, 2026-10-20),
+so PYTHONPATH is never set in the first place and the pop became a documented
+no-op. Removed here rather than carried forward as dead code.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-import os
-
-import flowgentic.metrics as fg
-
-from state import PipelineState
 
 
-async def run(flow, config: dict, cage_designer_path: str, out_dir, state: PipelineState) -> PipelineState:
+async def fold(handle, docked_oligomers, geometries, designed_oligomers):
     import CageFlow
     import records
 
-    docked_oligomers = state.docked_oligomers
-    geometries = state.geometries
-    designed_oligomers = state.designed_oligomers
+    config, out_dir = handle.config, handle.out_dir
 
     # =============================================================================== fold ===
     # Line-for-line port of fold_oligomer()'s body (CageFlow.py:3375-3583). An earlier draft
@@ -97,23 +97,10 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
                   f"(unit={fold_unit}"
                   f"{f'; {len(fold_duplicate_of)} duplicate(s) reused, not refolded' if fold_duplicate_of else ''})")
 
-            @fg.task(flow, name="fold_oligomer", resource="gpu",
+            @handle.worker(name="fold_oligomer", resource="gpu",
                      description="ColabFold structure prediction for one designed sequence")
             async def task_fold(dock_index: int, list_index: int, pre: dict):
                 from CageFlow import _fetch_one_msa, _fold_one_sequence
-
-                # Before BOTH ColabFold subprocesses, not just the predictor. `_fetch_one_msa`
-                # also shells out to colabfold_python (fold.fetch_msa -> colabfold_msa.py), so
-                # popping between the two -- as this did until job 24051 -- leaves the MSA
-                # fetch inheriting PYTHONPATH, which kills it. The failure is silent: the
-                # fetch returns ok=False, we fall through with a3m_path=None, and ColabFold
-                # computes its own MSA inline (her documented downgrade path). The only
-                # visible trace is `query.a3m` + `query_env/` in the fold dir where Track A
-                # has `msa.a3m`. Track A pops before fold_oligomer() for exactly this reason;
-                # see ../original/run_original.py's module docstring.
-                # Safe here: the imports above resolve via _task_setup's sys.path, not
-                # PYTHONPATH. Scoped to this task's own process -- no restore needed.
-                os.environ.pop("PYTHONPATH", None)
 
                 fold_out_dir = out_dir / f"dock_{dock_index}" / f"fold_seq_{list_index}"
                 msa_mode = config.get("fold_msa_mode", "mmseqs2_uniref_env")
@@ -126,7 +113,7 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
                         # Never swallow this again: it silently changes which MSA the
                         # prediction is built on, which is a science difference, not a retry.
                         # logging, not print: this runs inside a Dragon child, and _prepare()
-                        # (called by flowgentic.metrics.task's wrapper, before this body runs)
+                        # (called by handle.worker's wrapper, before this body runs)
                         # has already pointed this process's root logger at cageflow.log --
                         # same file the parent and every other child write to, so this warning
                         # is not only visible in sbatch.out.
@@ -169,5 +156,4 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
                         "fold_model_type": config.get("fold_model_type", "alphafold2_multimer_v3"),
                     }))
 
-    state.fold_results = fold_results
-    return state
+    return fold_results

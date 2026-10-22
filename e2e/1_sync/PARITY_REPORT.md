@@ -1,5 +1,15 @@
 # Track A vs Track B: parity report
 
+**UPDATE 2026-10-22: `adapted/`'s architecture changed, this report's own numbers did
+not.** `e2e/1_sync/adapted/` is now the handle-based restructure (see
+`e2e/1_sync/adapted/REPORT.md`) -- the old PipelineState/`fg.task`-import version this
+report was written against is gone, replaced wholesale, not merged. Parity was
+re-confirmed against the same baseline twice under the new architecture (jobs 24307,
+24309): `group_ddG -56.29312481189004` / `1132.880383650814`, matching this report's
+own numbers at full float precision. Everything below describes the OLD architecture's
+runs (24194 through 24293) and is kept as the historical record of how that baseline was
+established; read `adapted/REPORT.md` for the current code shape.
+
 **UPDATE 2026-10-21: re-verified after the cnio_usecase split, full git-based cluster
 deployment, and the venv-rename bug fix — parity still holds, and `results/` is no
 longer committed.** Jobs 24292 (Track A, `wall_s=542`) and 24293 (Track B, `wall_s=206`)

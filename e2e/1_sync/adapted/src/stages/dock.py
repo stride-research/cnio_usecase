@@ -8,8 +8,21 @@ is set.
 Everything this stage computes besides `docked_oligomers` itself (pdb_raw, canonical_axis,
 coset_reps, R_align, com, axis_a/b, reps_a/b, ...) is purely internal setup/materialize
 plumbing and never crosses to geometry/select/design/rosetta/fold -- those only ever
-consume `docked_oligomers`. That is why it is the only field this stage writes to
-PipelineState.
+consume `docked_oligomers`. That is why `docked_oligomers` is the only thing this
+stage returns.
+
+cage_designer_path / cross_contact_dist / cross_clash_dist are read off
+handle.config: main.py resolves the CageFlow-owned defaults IN THE PARENT, so no
+worker body ever references CageFlow.DEFAULT_CROSS_CONTACT_DIST itself (that
+reference hung every run through job 24049).
+
+NOTE: unlike every other stage, this one reads `config.get("out_dir")` for
+`_write_preparation_report` rather than the bound `handle.out_dir` -- same as
+today's adapted/src/stages/dock.py, not something this migration introduced.
+Both resolve to the same path today only because main.py's load_config() also
+stuffs "out_dir" into config. Left as-is rather than "fixed" here: unifying it
+to handle.out_dir is a one-line change, but only safe to make once it's
+confirmed nothing in CageFlow reads config["out_dir"] directly.
 """
 from __future__ import annotations
 
@@ -19,9 +32,6 @@ import math
 import os
 import time
 
-import flowgentic.metrics as fg
-
-from state import PipelineState
 
 #: How many prescore chunks to split a dock run's pose grid into -- mirrors her own
 #: _chunk_prescore's chunking (see DESIGN.md's dock/prescore row), run as AsyncFlow tasks
@@ -33,16 +43,20 @@ from state import PipelineState
 N_PRESCORE_CHUNKS = int(os.environ.get("SLURM_CPUS_PER_TASK") or 8)
 
 
-async def run(flow, config: dict, cage_designer_path: str, out_dir, state: PipelineState,
-               cross_contact_dist: float, cross_clash_dist: float) -> PipelineState:
+async def dock(handle):
     """Dispatch to the one-component or two-component dock implementation and store
-    the result as state.docked_oligomers.
+    the result as docked_oligomers.
     """
     import CageFlow
 
+    config = handle.config
+    cage_designer_path = config["cage_designer_path"]
+    cross_contact_dist = config["cross_contact_dist"]
+    cross_clash_dist = config["cross_clash_dist"]
+
     if not config.get("scaffold_pdb_b"):
         # ================================================================== dock: setup + scan ===
-        @fg.task(flow, name="dock_setup",
+        @handle.worker(name="dock_setup",
                  description="One-component dock setup: prepare scaffold, scan_docking")
         async def task_dock_setup():
             import CageFlow as _cf
@@ -129,7 +143,7 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
             chunk_size = math.ceil(len(solutions) / N_PRESCORE_CHUNKS)
             chunks = [solutions[i:i + chunk_size] for i in range(0, len(solutions), chunk_size)]
 
-            @fg.task(flow, name="prescore",
+            @handle.worker(name="prescore",
                      description="Steric prescore for one chunk of candidate poses")
             async def task_prescore_chunk(chunk):
                 from CageFlow import prescore_solutions
@@ -153,7 +167,7 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
             solutions = [solutions[i] for i in keep]
 
         # ==================================================================== dock: materialize ===
-        @fg.task(flow, name="dock_oligomer",
+        @handle.worker(name="dock_oligomer",
                  description="Materialize every kept pose into a full docked oligomer")
         async def task_materialize():
             from CageFlow import _materialize_dock
@@ -173,7 +187,7 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
         # (geometry's cross_* branch, Rosetta's _2c scorer, fold's two-component skip)
         # already existed and was unreachable dead code until this branch; nothing past
         # this point needed to change to support it.
-        @fg.task(flow, name="dock_setup",
+        @handle.worker(name="dock_setup",
                  description="Two-component dock setup: prepare both scaffolds, self-placement scan")
         async def task_dock_setup_2c():
             import CageFlow as _cf
@@ -341,7 +355,7 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
         logging.info(f"[dock_2c] pair search: {len(pre_a)} x {len(pre_b)} = "
               f"{len(pre_a) * len(pre_b)} candidate pairs over {len(chunks_a)} chunk(s)")
 
-        @fg.task(flow, name="dock_two_component_pair_search",
+        @handle.worker(name="dock_two_component_pair_search",
                  description="Cross-contact pair search for one chunk of component-A candidates")
         async def task_scan_2c_chunk(chunk_a: list, grid_size: int):
             from CageFlow import _scan_2c_chunk_worker
@@ -378,7 +392,7 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
             chunk_size = math.ceil(len(solutions) / N_PRESCORE_CHUNKS)
             chunks = [solutions[i:i + chunk_size] for i in range(0, len(solutions), chunk_size)]
 
-            @fg.task(flow, name="prescore",
+            @handle.worker(name="prescore",
                      description="Steric prescore for one chunk of two-component candidate poses")
             async def task_prescore_2c_chunk(chunk):
                 from CageFlow import prescore_solutions_2c
@@ -401,7 +415,7 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
                   f"({n_ok} sterically admissible); materializing {len(keep)}")
             solutions = [solutions[i] for i in keep]
 
-        @fg.task(flow, name="dock_oligomer",
+        @handle.worker(name="dock_oligomer",
                  description="Materialize every kept pose into a full two-component docked oligomer")
         async def task_materialize_2c():
             from CageFlow import _materialize_dock_2c
@@ -416,5 +430,4 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
         logging.info(f"[dock_2c] materialized {len(docked_oligomers)} two-component dock(s)")
 
 
-    state.docked_oligomers = docked_oligomers
-    return state
+    return docked_oligomers

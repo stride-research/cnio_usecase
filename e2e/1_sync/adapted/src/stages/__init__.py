@@ -1,7 +1,7 @@
-"""Stage modules for Track B's pipeline, one file per pipeline stage.
+"""The science stages. LAURA OWNS THIS PACKAGE.
 
-Each module exposes a single `async def run(...) -> PipelineState` entrypoint, called in
-sequence from main.py. Task bodies inside each stage follow the same three invariants
-described in main.py's module docstring (task_setup first, no parent-module capture,
-history writes in the parent).
+One file per stage, zero flowgentic imports in any of them. The wiring that
+calls them in order lives one level up, in `../pipeline.py` -- not in here,
+since the stage order is the seam between this package and main.py, not a
+science concern itself.
 """

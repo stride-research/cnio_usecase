@@ -1,28 +1,22 @@
 """Design stage: runs ProteinMPNN on each selected dock's interface and produces
-state.designed_oligomers.
+designed_oligomers.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 
-import flowgentic.metrics as fg
 
-from state import PipelineState
-
-
-async def run(flow, config: dict, cage_designer_path: str, out_dir, state: PipelineState) -> PipelineState:
+async def design(handle, docked_oligomers, geometries, selected_indices):
     import CageFlow
     import records
 
-    docked_oligomers = state.docked_oligomers
-    geometries = state.geometries
-    selected_indices = state.selected_indices
+    config, out_dir = handle.config, handle.out_dir
     mpnn_dir = config.get("mpnn_dir", "ProteinMPNN")
     resource = "cpu" if config.get("mpnn_force_cpu") else "gpu"
 
-    @fg.task(flow, name="design_interface", resource=resource,
-             description="ProteinMPNN sequence design for one dock's interface")
+    @handle.worker(name="design_interface", resource=resource,
+                description="ProteinMPNN sequence design for one dock's interface")
     async def task_design(dock_index: int, docked_oligomer: dict, geometry: dict):
         from CageFlow import _design_one_interface
         import records as _records
@@ -54,5 +48,4 @@ async def run(flow, config: dict, cage_designer_path: str, out_dir, state: Pipel
             design_summary=design_summary, error=result.get("error")))
     logging.info(f"[design] {len(designed_oligomers)}/{len(selected_indices)} dock(s) designed")
 
-    state.designed_oligomers = designed_oligomers
-    return state
+    return designed_oligomers

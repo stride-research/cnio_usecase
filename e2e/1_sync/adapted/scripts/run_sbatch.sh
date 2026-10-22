@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Track B launch script. Sibling of ../original/run_sbatch.sh (Track A) -- same partition, same
-# config content (modulo out_dir), so the two runs are the actual comparison per DESIGN.md.
+# Track B launch script. Sibling of ../original/run_sbatch.sh (Track A) -- same
+# partition, same config content, so the two runs are the actual comparison.
+# This is the handle-based restructure (see REPORT.md): the old PipelineState/
+# fg.task-import version that used to live at this path is gone, replaced
+# wholesale after parity was re-confirmed against it (job 24307/24309).
 #SBATCH -A biostructure
 #SBATCH -p biostructure-fortran
 #SBATCH --qos=biostructure-priority-qos
@@ -31,14 +34,13 @@ export PYTHONUNBUFFERED=1
 export FLOWGENTIC_ENV_FILE="$HOME/software/cnio_usecase/.env"
 
 # Dragon children must `import flowgentic` to deserialize their tasks (cloudpickle ships by
-# reference), so it has to be on site-packages, not just sitting next to this script.
+# reference), so it has to be on site-packages, not just sitting next to this script. This
+# is also where `flowgentic.handle.PipelineHandle` comes from -- confirm the flowgentic
+# checkout on the cluster is at the commit that added handle.py before relying on this.
 # --no-deps: flowgentic is stdlib-only; don't let pip's resolver touch anything else pinned.
 FLOWGENTIC_PKG="$HOME/software/flowgentic"
 python3 -m pip install --no-deps --quiet -e "$FLOWGENTIC_PKG" python-dotenv
 
-# out_dir is no longer a config.json key (main.py's _load_config() computes it itself,
-# same formula, at runtime) -- computed here directly instead of reading a key that's
-# deliberately no longer there.
 OUT_DIR="$FG_DIR/results"
 mkdir -p "$OUT_DIR"
 cp "$CONFIG" "$OUT_DIR/config.used.json"
@@ -47,6 +49,11 @@ cp "$CONFIG" "$OUT_DIR/config.used.json"
 # multi-node overlay even for a one-node job, and that overlay has hung here before. Nothing
 # in this pipeline is multi-node. No --mem: Dragon's /dev/shm pools are ~5GB and the node has
 # 756GB to itself; capping it just gives the pools a ceiling to hit for no benefit.
+#
+# main.py lives under $FG_DIR/src -- stages/ and pipeline.py (the wiring, a
+# sibling of main.py, not inside stages/) are its own siblings, so Python's own
+# sys.path[0] (the script's own directory) is enough for `import stages` and
+# `from pipeline import cageflow` to resolve.
 
 START=$(date +%s)
 dragon -s "$FG_DIR/src/main.py" "$CONFIG"

@@ -1,8 +1,12 @@
 # Decoupling the pipeline from flowgentic: the shape
 
-Phase A of the plan in `/Users/javierdominguezsegura/.claude/plans/misty-sleeping-stroustrup.md`.
-Nothing here has run. The next step (Phase B) moves this to `e2e/1_sync/temp/`,
-submits it, and parity-checks against Track A.
+This is Track B (`e2e/1_sync/adapted/`). Built in a scratch directory
+(`e2e/1_sync/temp/`) per the plan at
+`/Users/javierdominguezsegura/.claude/plans/misty-sleeping-stroustrup.md`,
+parity-confirmed twice against the established baseline (jobs 24307, 24309),
+then that directory replaced the old PipelineState/`fg.task`-import version of
+`adapted/` wholesale -- deleted, not merged, since parity was already
+confirmed and the old version had no remaining readers.
 
 ## The problem
 
@@ -108,7 +112,7 @@ task counts and `history.jsonl` for per-dock status — the same pattern
 ## Ownership after this
 
 ```
-e2e/1_sync/temp/
+e2e/1_sync/adapted/
   src/main.py             JAVIER   engine, env, logging, metrics, Discord
   src/pipeline.py         LAURA    the wiring (Javier reviews the PR) --
                                    sibling of main.py, NOT inside stages/:
@@ -205,9 +209,10 @@ from reading the code:**
 
 1. **`main.py`'s `out_dir` silently diverged from `run_sbatch.sh`'s `OUT_DIR`.**
    `HERE = Path(__file__).resolve().parent` was correct when `main.py` lived
-   flat under `temp/`, and stayed wrong after it moved to `src/main.py`: `HERE`
-   became `temp/src/`, so `out_dir` computed to `temp/src/results` while the
-   launch script pre-creates and expects `temp/results`. The job still
+   flat under what was then `temp/`, and stayed wrong after it moved to
+   `src/main.py`: `HERE` became `temp/src/`, so `out_dir` computed to
+   `temp/src/results` while the launch script pre-creates and expects
+   `temp/results`. The job still
    completed -- `cageflow.log`, `history.jsonl`, `compute_stats.json`, every
    per-dock subdirectory, all landed at `src/results/` instead, nothing was
    lost, but two independently-computed paths had silently disagreed, which is
@@ -230,9 +235,15 @@ directly:** `pipeline.py` moved out of `stages/` to sit beside `main.py`.
 seam between that and the orchestration, which is neither, so it gets its own
 file. Mirrors `adapted/`'s own `src/` layout exactly now.
 
-Not yet re-run on the cluster since these fixes landed -- the confirmed
-parity numbers above are from before the `HERE` fix (output just had to be
-read from the unintended `src/results/` location). Worth one more cheap run
-to confirm the path fix lands results in the expected `temp/results/` and
-that the restored Discord messages actually post, before calling Phase 1
-fully done.
+Re-run after the fix, job **24309**: `results/` correctly landed at
+`temp/results/` (confirmed `src/results/` did NOT get recreated), science
+still matched -- `group_ddG -56.29312481189004` / `1132.880383650814`,
+identical to the first run and to the baseline at full float precision,
+`wall_s=210`. No tracebacks anywhere in `sbatch.out`/`sbatch.err`. The Discord
+webhook is configured (`.env` has `DISCORD_WEBHOOK_URL`) and nothing in the
+logs indicates `fg_discord.notify` failed, though actual delivery was not
+visually confirmed in the channel itself.
+
+**Phase 1 is done.** `e2e/1_sync/temp/` was then renamed to `e2e/1_sync/adapted/`,
+replacing the old version at that path entirely -- this file is that same
+report, moved with it.
