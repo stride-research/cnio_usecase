@@ -2,7 +2,7 @@
 
 Everything here is system work: engine setup, environment, logging, metrics,
 notifications. There is no science in this file and no pipeline shape: the
-shape is one import, from Laura's `stages/pipeline.py`. Compare with today's
+shape is one import, from `pipeline.py` (sibling of this file). Compare with today's
 `adapted/src/main.py`, where the eight `state = await <step>.run(...)` lines
 are both the shape and the only place a new step could be added.
 
@@ -22,7 +22,7 @@ What stayed identical to today, because all of it was learned the hard way:
     relying on a computed fallback
 
 WHY THE FUNNEL IS BUILT FROM FILES, NOT FROM A RETURN VALUE: the pipeline
-wiring (`stages/pipeline.py`) returns nothing. A typed "run result" dataclass
+wiring (`pipeline.py`) returns nothing. A typed "run result" dataclass
 was tried and dropped -- it is a contract between her wiring and this file,
 and its "one value per stage" shape stops being true the moment a stage fans
 out per candidate. Reading `compute_stats.json` and `history.jsonl` instead is
@@ -52,7 +52,16 @@ import flowgentic.discord as fg_discord
 import flowgentic.metrics as fg_metrics
 from flowgentic.handle import PipelineHandle
 
-HERE = Path(__file__).resolve().parent
+# main.py lives at src/main.py -- .parent.parent, not .parent, to land on the
+# track root (temp/), matching adapted/'s own convention and run_sbatch.sh's
+# $FG_DIR. Confirmed broken the hard way: job 24307 ran clean but wrote
+# cageflow.log/history.jsonl/compute_stats.json to src/results/ while
+# run_sbatch.sh's OUT_DIR pre-created and expected temp/results/ -- two
+# independently-computed paths silently diverging, the exact failure mode
+# already documented elsewhere in this project (three pieces, nothing checks
+# they agree). Science was unaffected (parity confirmed against that run's
+# output); only the output LOCATION was wrong.
+HERE = Path(__file__).resolve().parent.parent
 CONFIG_PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE / "config" / "config.json"
 
 ENV_PATH = (Path(os.environ["FLOWGENTIC_ENV_FILE"])
@@ -168,9 +177,10 @@ async def main():
         log_path=log_path,
     )
 
-    # The pipeline shape lives in HER file, not here. This line is the only
-    # place it is named.
-    from stages.pipeline import cageflow
+    # The pipeline shape lives in pipeline.py, a sibling of this file -- not
+    # inside stages/ (that package is science only) and not here (this file
+    # names it once and never expresses the order itself).
+    from pipeline import cageflow
 
     await cageflow(handle)
 

@@ -41,7 +41,11 @@ from pathlib import Path
 #: this tests/ directory.
 TEMP_DIR = Path(__file__).resolve().parent.parent
 SRC_DIR = TEMP_DIR / "src"
-SCANNED_FILES = [SRC_DIR / "main.py", *sorted((SRC_DIR / "stages").glob("*.py"))]
+#: main.py and pipeline.py (the wiring, a sibling of main.py) hold no worker
+#: bodies today, but are scanned anyway so one gaining an inline worker later
+#: does not silently slip past this check.
+SCANNED_FILES = [SRC_DIR / "main.py", SRC_DIR / "pipeline.py",
+                 *sorted((SRC_DIR / "stages").glob("*.py"))]
 
 #: Modules that may be imported into a stage's parent scope. Referencing any
 #: of these inside a worker body ships the module object itself.

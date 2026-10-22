@@ -1,4 +1,7 @@
-"""The science stages and the pipeline shape. LAURA OWNS THIS PACKAGE.
+"""The science stages. LAURA OWNS THIS PACKAGE.
 
-One file per stage, plus `pipeline.py`, which is the wiring. Start there.
+One file per stage, zero flowgentic imports in any of them. The wiring that
+calls them in order lives one level up, in `../pipeline.py` -- not in here,
+since the stage order is the seam between this package and main.py, not a
+science concern itself.
 """

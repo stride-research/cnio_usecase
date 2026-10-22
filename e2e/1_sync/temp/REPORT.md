@@ -17,7 +17,7 @@ breaking her code either. Both directions are blocked.
 
 ## The contract
 
-`flowgentic.PipelineHandle` (`context.py`), four members:
+`flowgentic.PipelineHandle` (`handle.py`), four members:
 
 | Member | What |
 |---|---|
@@ -58,7 +58,7 @@ version of the original.
 ## The wiring — phase 1, strictly serial
 
 ```python
-# stages/pipeline.py -- Laura's file, Javier reviews the PR
+# src/pipeline.py -- sibling of main.py, Laura's file, Javier reviews the PR
 async def cageflow(handle) -> None:
     docked   = await handle.run(dock)
     geoms    = await handle.run(geometry, docked)
@@ -109,15 +109,22 @@ task counts and `history.jsonl` for per-dock status — the same pattern
 
 ```
 e2e/1_sync/temp/
-  main.py                JAVIER   engine, env, logging, metrics, Discord
-  stages/pipeline.py     LAURA    the wiring (Javier reviews the PR)
-  stages/*.py            LAURA    one file per stage, zero flowgentic imports
-  config/config.json     LAURA
+  src/main.py             JAVIER   engine, env, logging, metrics, Discord
+  src/pipeline.py         LAURA    the wiring (Javier reviews the PR) --
+                                   sibling of main.py, NOT inside stages/:
+                                   it is the seam between the two, not a
+                                   stage and not pure orchestration either
+  src/stages/*.py         LAURA    one file per stage, zero flowgentic imports
+  config/config.json      LAURA
   tests/test_no_module_capture.py   checked by both, runs with no cluster
 flowgentic/src/flowgentic/
-  context.py             JAVIER   PipelineHandle
-  metrics.py             JAVIER   worker-side primitives (_prepare/_snapshot/_write)
+  handle.py               JAVIER   PipelineHandle
+  metrics.py              JAVIER   worker-side primitives (_prepare/_snapshot/_write)
 ```
+
+Mirrors `adapted/`'s own `src/` layout exactly, which is also what let the
+`HERE` path bug below get caught quickly: `main.py`'s own path arithmetic has
+to agree with `run_sbatch.sh`'s, and nothing checks that automatically.
 
 ## The capture test, extended and verified
 
@@ -172,10 +179,60 @@ the 8-CPU allocation. Neither is a phase-1 concern.
    (`scored_designs.get(i)`, one history field).
 2. Should `export` wait for `fold_results`? It does not read them today.
 
-## Next: Phase B
+## Phase B: run on the cluster, parity result
 
-Move to `e2e/1_sync/temp/`, install `context.py` into
-`flowgentic/src/flowgentic/`, wire `run_sbatch.sh`, submit alongside Track A,
-and accept only on byte-identical `qualifying_sequences.csv` + field-identical
-`history.jsonl` + `group_ddG` matching the current baseline
-(`-56.293125` / `1132.880384`).
+Done. Job **24307** (`cf_handle`, `fortran`, `wall_s=208`) ran this tree
+end to end. No fresh Track A was submitted for comparison -- there is
+already a recently re-verified baseline (jobs 24292/24293, 2026-10-21,
+`PARITY_REPORT.md`), and re-running Track A just to diff against it would
+have burned shared GPU time on the `biostructure` node for no reason. (One
+was submitted by mistake mid-session as job 24308 and cancelled ~1 minute
+in, once caught.)
+
+**Science: exact match at full float precision.**
+
+```
+dock 1  group_ddG = -56.29312481189004   (baseline: -56.293125)
+dock 2  group_ddG = 1132.880383650814    (baseline: 1132.880384)
+```
+
+Both `qualifying_sequences.csv` rows and `history.jsonl`'s `group_ddg` fields
+read directly off the cluster. The restructure changes nothing about the
+science.
+
+**Two real bugs found by actually running it, both fixed, neither visible
+from reading the code:**
+
+1. **`main.py`'s `out_dir` silently diverged from `run_sbatch.sh`'s `OUT_DIR`.**
+   `HERE = Path(__file__).resolve().parent` was correct when `main.py` lived
+   flat under `temp/`, and stayed wrong after it moved to `src/main.py`: `HERE`
+   became `temp/src/`, so `out_dir` computed to `temp/src/results` while the
+   launch script pre-creates and expects `temp/results`. The job still
+   completed -- `cageflow.log`, `history.jsonl`, `compute_stats.json`, every
+   per-dock subdirectory, all landed at `src/results/` instead, nothing was
+   lost, but two independently-computed paths had silently disagreed, which is
+   the exact failure mode this project has already been bitten by once
+   (CLAUDE.md, the three-pieces-nothing-checks-they-agree note). Fixed:
+   `HERE = Path(__file__).resolve().parent.parent`, matching `adapted/`'s own
+   convention exactly.
+2. **The per-stage Discord notifications were dropped during the restructure,
+   not deliberately removed.** `main.py` lost its hardcoded stage sequence
+   (the point of this whole design), and the eight `fg_discord.notify(...)`
+   calls that lived alongside that sequence went with it, with nothing put in
+   their place. Restored in `pipeline.py` -- the one place that still
+   expresses the stage order -- with the exact original wording, plus the
+   `if not selected: return` early exit `adapted/src/main.py` has, which
+   `pipeline.py` also silently lacked until now.
+
+**One structural change made in the same pass, not a bug but requested
+directly:** `pipeline.py` moved out of `stages/` to sit beside `main.py`.
+`stages/` is pure science with zero flowgentic imports; `pipeline.py` is the
+seam between that and the orchestration, which is neither, so it gets its own
+file. Mirrors `adapted/`'s own `src/` layout exactly now.
+
+Not yet re-run on the cluster since these fixes landed -- the confirmed
+parity numbers above are from before the `HERE` fix (output just had to be
+read from the unintended `src/results/` location). Worth one more cheap run
+to confirm the path fix lands results in the expected `temp/results/` and
+that the restored Discord messages actually post, before calling Phase 1
+fully done.
