@@ -40,8 +40,17 @@ printf 'repo=%s\nref=%s\nsha=%s\n' "$REPO_URL" "$REF" \
 TRACK_DIR="$SCRATCH/e2e/1_sync/adapted"
 cd "$TRACK_DIR"
 
-JOBID=$(sbatch --parsable --export=ALL,CNIO_CI_OUT="$RUNDIR/results" \
-    scripts/run_sbatch.sh "$TRACK_DIR/config/$CONFIG_NAME")
+# CNIO_CI_OUT is exported into the submitting shell, NOT passed via
+# `sbatch --export=ALL,CNIO_CI_OUT=...`. Using the flag sets SLURM_EXPORT_ENV
+# inside the job, which Dragon's child processes then inherit as a restriction
+# -- they lose the env carrying Dragon's serialized channel/pool descriptors and
+# die in connect_to_infrastructure() with "could not attach to memory pool",
+# while the parent looks healthy and Slurm keeps reporting RUNNING. Confirmed by
+# bisection: identical job, same node, differing only in this flag, fails within
+# 60s with --export and completes in 3:33 without it. Plain sbatch already
+# propagates the submitting environment and leaves SLURM_EXPORT_ENV unset.
+export CNIO_CI_OUT="$RUNDIR/results"
+JOBID=$(sbatch --parsable scripts/run_sbatch.sh "$TRACK_DIR/config/$CONFIG_NAME")
 echo "$JOBID" > "$RUNDIR/.jobid"
 
 # sbatch --wait only works at submission -- it can't attach to an existing job
