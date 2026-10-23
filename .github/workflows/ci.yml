@@ -1,0 +1,47 @@
+name: CageFlow CI
+
+on: pull_request
+
+jobs:
+  test:
+    runs-on: [self-hosted, scitech]
+    # Generous and native, not a shell-level `timeout` wrapper. sbatch --wait is a
+    # CLIENT-side block -- killing that client does not cancel the Slurm job, which
+    # keeps running regardless. A shell timeout that walks away early would desync
+    # the PR from reality: the job still finishes later (pass or fail) and nothing
+    # would ever come back to report that real outcome. Let the check genuinely
+    # stay "in progress" for as long as the job actually takes, bounded only by a
+    # ceiling generous enough that hitting it is itself a real, exceptional signal.
+    timeout-minutes: 240
+    env:
+      RUNDIR: /data/biostructure/users/javidsegura/cnio_flowgentic/ci_runs/pr-${{ github.event.number }}-${{ github.sha }}
+    steps:
+      - id: run
+        run: scripts/ci_run.sh ${{ github.event.pull_request.head.sha }} "$RUNDIR"
+
+      # Cleanup-on-cancel: the ONLY piece that needs the Actions-native cancelled()
+      # check, kept out of ci_run.sh entirely so a human running it by hand never
+      # sees it. Without this, killing the check leaves the Slurm job still running
+      # on shared GPU time with nothing watching it.
+      - if: cancelled()
+        run: scancel "$(cat "$RUNDIR/.jobid")"
+
+      - if: always()
+        # outcome comes from the `run` step's own GitHub-tracked status, not a
+        # hand-captured $? -- each `run:` step is a separate shell, so a raw shell
+        # variable set in one step does not exist in the next.
+        env:
+          OUTCOME: ${{ steps.run.outcome }}
+        run: |
+          {
+            echo "### CageFlow CI -- $OUTCOME"
+            echo "wall_s: $(cat "$RUNDIR/results/wall_s.txt" 2>/dev/null || echo n/a)"
+            echo "source: $(cat "$RUNDIR/source.txt" 2>/dev/null || echo n/a)"
+            echo "path: \`$RUNDIR\`"
+            if [ "$OUTCOME" != "success" ]; then
+              echo
+              echo '```'
+              tail -30 "$RUNDIR/sbatch.err" 2>/dev/null || echo "(no sbatch.err found)"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

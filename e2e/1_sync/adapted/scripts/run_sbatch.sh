@@ -20,12 +20,25 @@
 
 set -euo pipefail
 
-FG_DIR="$HOME/software/cnio_usecase/e2e/1_sync/adapted"
-CONFIG="$FG_DIR/config/config.json"
+# Computed from cwd, not a hardcoded $HOME path: sbatch is always submitted from
+# this directory (-o/-e below are relative to cwd at submission time, not shell-
+# expanded), so this resolves correctly whether that cwd is Javier's permanent
+# deployment clone (~/software/cnio_usecase/...) or a throwaway CI scratch clone
+# (scripts/ci_run.sh's mktemp checkout) -- same script, no path rewriting needed.
+FG_DIR="$(pwd)"
+CONFIG="${1:-$FG_DIR/config/config.json}"
+
+# No shared/CI-specific venv: every run -- CI-triggered or Javier's own -- executes
+# as javidsegura (the self-hosted runner's own identity, regardless of whose PR
+# triggered it), so his existing personal deployment paths just work unchanged.
+# Only the output directory varies per run (CNIO_CI_OUT, below).
+VENV="$HOME/.venvs/cnio_usecase"
+FLOWGENTIC_PKG="$HOME/software/flowgentic"
+OUT_DIR="${CNIO_CI_OUT:-$FG_DIR/results}"
 
 # Self-contained venv: no `module load`, so PYTHONPATH is never set. See
 # context/current-implementation.md "UPDATE 2026-10-20" for why that matters.
-source ~/.venvs/cnio_usecase/bin/activate
+source "$VENV/bin/activate"
 export PYTHONUNBUFFERED=1
 
 # .env lives at the repo root -- pointed at explicitly rather than guessed, since this
@@ -38,10 +51,8 @@ export FLOWGENTIC_ENV_FILE="$HOME/software/cnio_usecase/.env"
 # is also where `flowgentic.handle.PipelineHandle` comes from -- confirm the flowgentic
 # checkout on the cluster is at the commit that added handle.py before relying on this.
 # --no-deps: flowgentic is stdlib-only; don't let pip's resolver touch anything else pinned.
-FLOWGENTIC_PKG="$HOME/software/flowgentic"
 python3 -m pip install --no-deps --quiet -e "$FLOWGENTIC_PKG" python-dotenv
 
-OUT_DIR="$FG_DIR/results"
 mkdir -p "$OUT_DIR"
 cp "$CONFIG" "$OUT_DIR/config.used.json"
 

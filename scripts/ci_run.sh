@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Runs one CI check: clone a ref, submit it, wait for the result. Called by
+# .github/workflows/ci.yml and baseline.yml; the Actions-specific bits (cancel
+# handling, step summary) live in the workflow, not here.
+#
+# Usage: scripts/ci_run.sh <ref> <rundir> [config_name]
+#   <ref>         branch, tag, or commit SHA
+#   <rundir>      permanent output dir, e.g. .../ci_runs/pr-<n>-<sha>/
+#   [config_name] committed config to run, default config.json
+#
+# Uses Javier's existing ~/.venvs and ~/software/ deployment unchanged -- every
+# run executes as javidsegura regardless of whose PR triggered it, so there is
+# nothing to share or rebuild at that layer.
+set -euo pipefail
+
+REF="${1:?usage: ci_run.sh <ref> <rundir> [config_name]}"
+RUNDIR="${2:?usage: ci_run.sh <ref> <rundir> [config_name]}"
+CONFIG_NAME="${3:-config.json}"
+REPO_URL="https://github.com/stride-research/cnio_usecase.git"
+
+mkdir -p "$RUNDIR"
+
+SCRATCH=$(mktemp -d)
+trap 'rm -rf "$SCRATCH"' EXIT
+
+# fetch + checkout FETCH_HEAD, not `clone --branch`: CI passes a raw commit SHA,
+# which --branch can't resolve but this handles uniformly with a branch name.
+git -C "$SCRATCH" init --quiet
+git -C "$SCRATCH" remote add origin "$REPO_URL"
+git -C "$SCRATCH" fetch --quiet --depth 1 origin "$REF"
+git -C "$SCRATCH" checkout --quiet FETCH_HEAD
+printf 'repo=%s\nref=%s\nsha=%s\n' "$REPO_URL" "$REF" \
+    "$(git -C "$SCRATCH" rev-parse HEAD)" > "$RUNDIR/source.txt"
+
+TRACK_DIR="$SCRATCH/e2e/1_sync/adapted"
+cd "$TRACK_DIR"
+
+JOBID=$(sbatch --parsable --export=ALL,CNIO_CI_OUT="$RUNDIR/results" \
+    scripts/run_sbatch.sh "$TRACK_DIR/config/$CONFIG_NAME")
+echo "$JOBID" > "$RUNDIR/.jobid"
+
+set +e
+sbatch --wait --jobid="$JOBID"
+STATUS=$?
+set -e
+
+# sbatch's -o/-e are relative to cwd at submission (not shell-expanded), so they
+# land in $TRACK_DIR -- inside $SCRATCH, which the trap deletes on exit. Preserve
+# them before that happens; results/ was already written straight to $RUNDIR.
+cp -f "$TRACK_DIR/sbatch.out" "$RUNDIR/sbatch.out" 2>/dev/null || true
+cp -f "$TRACK_DIR/sbatch.err" "$RUNDIR/sbatch.err" 2>/dev/null || true
+
+exit "$STATUS"
