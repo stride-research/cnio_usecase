@@ -20,7 +20,15 @@ REPO_URL="https://github.com/stride-research/cnio_usecase.git"
 
 mkdir -p "$RUNDIR"
 
-SCRATCH=$(mktemp -d)
+# Must be on NFS-shared storage, not the default /tmp or /var/tmp -- those are
+# node-local. ci_run.sh runs on the login node (rust) but the Slurm job lands on
+# whichever compute node gets scheduled (e.g. fortran); a node-local scratch dir
+# is invisible there, so the job's own working directory wouldn't exist and it
+# would fail instantly with no output files at all (found by actually running
+# this against the cluster -- the job allocated node "fortran" while the scratch
+# clone sat on "rust"'s local /var/tmp).
+mkdir -p "$HOME/.cache/cnio_ci_scratch"
+SCRATCH=$(mktemp -d --tmpdir="$HOME/.cache/cnio_ci_scratch")
 trap 'rm -rf "$SCRATCH"' EXIT
 
 # fetch + checkout FETCH_HEAD, not `clone --branch`: CI passes a raw commit SHA,
