@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs one CI check: clone a ref, submit it, wait for the result. Called by
-# .github/workflows/ci.yml and baseline.yml; the Actions-specific bits (cancel
+# .github/workflows/ci.yml and baseline.yml; Actions-specific bits (cancel
 # handling, step summary) live in the workflow, not here.
 #
 # Usage: scripts/ci_run.sh <ref> <rundir> [config_name]
@@ -9,7 +9,7 @@
 #   [config_name] committed config to run, default config.json
 #
 # Uses Javier's existing ~/.venvs and ~/software/ deployment unchanged -- every
-# run executes as javidsegura regardless of whose PR triggered it, so there is
+# run executes as javidsegura regardless of whose PR triggered it, so there's
 # nothing to share or rebuild at that layer.
 set -euo pipefail
 
@@ -20,19 +20,16 @@ REPO_URL="https://github.com/stride-research/cnio_usecase.git"
 
 mkdir -p "$RUNDIR"
 
-# Must be on NFS-shared storage, not the default /tmp or /var/tmp -- those are
-# node-local. ci_run.sh runs on the login node (rust) but the Slurm job lands on
-# whichever compute node gets scheduled (e.g. fortran); a node-local scratch dir
-# is invisible there, so the job's own working directory wouldn't exist and it
-# would fail instantly with no output files at all (found by actually running
-# this against the cluster -- the job allocated node "fortran" while the scratch
-# clone sat on "rust"'s local /var/tmp).
-mkdir -p "$HOME/.cache/cnio_ci_scratch"
-SCRATCH=$(mktemp -d --tmpdir="$HOME/.cache/cnio_ci_scratch")
+# Scratch clone goes under $HOME, not /tmp: /tmp is node-local, but the Slurm
+# job may land on a different node than this script runs on, so a node-local
+# path is invisible to it. Plain $HOME/ci_scratch, not ~/.cache -- .cache
+# carries an unrelated ACL that denies writes partway through.
+mkdir -p "$HOME/ci_scratch"
+SCRATCH=$(mktemp -d --tmpdir="$HOME/ci_scratch")
 trap 'rm -rf "$SCRATCH"' EXIT
 
-# fetch + checkout FETCH_HEAD, not `clone --branch`: CI passes a raw commit SHA,
-# which --branch can't resolve but this handles uniformly with a branch name.
+# fetch + checkout FETCH_HEAD, not `clone --branch`: CI passes a raw commit
+# SHA, which --branch can't resolve but this handles either form.
 git -C "$SCRATCH" init --quiet
 git -C "$SCRATCH" remote add origin "$REPO_URL"
 git -C "$SCRATCH" fetch --quiet --depth 1 origin "$REF"
@@ -47,12 +44,10 @@ JOBID=$(sbatch --parsable --export=ALL,CNIO_CI_OUT="$RUNDIR/results" \
     scripts/run_sbatch.sh "$TRACK_DIR/config/$CONFIG_NAME")
 echo "$JOBID" > "$RUNDIR/.jobid"
 
-# No native "block on an already-submitted job ID" in Slurm -- `sbatch --wait`
-# only works when submitting (it can't attach to a job ID after the fact), so
-# this polls sacct until the job reaches a terminal state. Needed as two
-# separate steps (submit, then wait) rather than one `sbatch --wait` call so
-# $RUNDIR/.jobid exists immediately -- the workflow's cancel-on-cancelled step
-# reads it while this loop is still running.
+# sbatch --wait only works at submission -- it can't attach to an existing job
+# ID -- so poll sacct instead. Submit and wait are separate steps (not one
+# `sbatch --wait` call) so $RUNDIR/.jobid exists immediately for the
+# cancel-on-cancelled workflow step.
 while true; do
     STATE=$(sacct -j "$JOBID" -X --noheader --format=State 2>/dev/null | tr -d ' ')
     case "$STATE" in
@@ -62,9 +57,9 @@ while true; do
     esac
 done
 
-# sbatch's -o/-e are relative to cwd at submission (not shell-expanded), so they
-# land in $TRACK_DIR -- inside $SCRATCH, which the trap deletes on exit. Preserve
-# them before that happens; results/ was already written straight to $RUNDIR.
+# sbatch's -o/-e are relative to cwd at submission, so they land in
+# $TRACK_DIR -- inside $SCRATCH, which the trap deletes on exit. Copy them out
+# first; results/ was already written straight to $RUNDIR.
 cp -f "$TRACK_DIR/sbatch.out" "$RUNDIR/sbatch.out" 2>/dev/null || true
 cp -f "$TRACK_DIR/sbatch.err" "$RUNDIR/sbatch.err" 2>/dev/null || true
 
