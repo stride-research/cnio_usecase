@@ -39,10 +39,20 @@ JOBID=$(sbatch --parsable --export=ALL,CNIO_CI_OUT="$RUNDIR/results" \
     scripts/run_sbatch.sh "$TRACK_DIR/config/$CONFIG_NAME")
 echo "$JOBID" > "$RUNDIR/.jobid"
 
-set +e
-sbatch --wait --jobid="$JOBID"
-STATUS=$?
-set -e
+# No native "block on an already-submitted job ID" in Slurm -- `sbatch --wait`
+# only works when submitting (it can't attach to a job ID after the fact), so
+# this polls sacct until the job reaches a terminal state. Needed as two
+# separate steps (submit, then wait) rather than one `sbatch --wait` call so
+# $RUNDIR/.jobid exists immediately -- the workflow's cancel-on-cancelled step
+# reads it while this loop is still running.
+while true; do
+    STATE=$(sacct -j "$JOBID" -X --noheader --format=State 2>/dev/null | tr -d ' ')
+    case "$STATE" in
+        COMPLETED) STATUS=0; break ;;
+        FAILED|CANCELLED*|TIMEOUT|OUT_OF_MEMORY|NODE_FAIL|BOOT_FAIL|DEADLINE) STATUS=1; break ;;
+        *) sleep 15 ;;
+    esac
+done
 
 # sbatch's -o/-e are relative to cwd at submission (not shell-expanded), so they
 # land in $TRACK_DIR -- inside $SCRATCH, which the trap deletes on exit. Preserve
