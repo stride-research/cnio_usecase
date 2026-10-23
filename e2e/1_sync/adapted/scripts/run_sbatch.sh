@@ -56,6 +56,11 @@ python3 -m pip install --no-deps --quiet -e "$FLOWGENTIC_PKG" python-dotenv
 mkdir -p "$OUT_DIR"
 cp "$CONFIG" "$OUT_DIR/config.used.json"
 
+# main.py reads this instead of computing its own out_dir, so this script is the
+# single source of truth for where output lands. Without it, main.py's own
+# HERE/"results" wins and the two silently diverge.
+export CAGEFLOW_OUT_DIR="$OUT_DIR"
+
 # -s (single-node services only), not -w slurm -t tcp: the latter stands up Dragon's full
 # multi-node overlay even for a one-node job, and that overlay has hung here before. Nothing
 # in this pipeline is multi-node. No --mem: Dragon's /dev/shm pools are ~5GB and the node has
@@ -71,3 +76,16 @@ dragon -s "$FG_DIR/src/main.py" "$CONFIG"
 WALL=$(( $(date +%s) - START ))
 echo "wall_s=$WALL"
 echo "$WALL" > "$OUT_DIR/wall_s.txt"
+
+# Assert the pipeline actually wrote where this script expects. A zero exit from
+# dragon is NOT sufficient evidence the run produced anything: the output path is
+# computed in more than one place historically, and when those disagreed the job
+# still exited 0 with an $OUT_DIR holding nothing but the two files this script
+# writes itself. Fail loudly instead -- CI's verdict is this script's exit code.
+if [ ! -s "$OUT_DIR/cageflow.log" ]; then
+    echo "ERROR: $OUT_DIR/cageflow.log missing or empty after a clean dragon exit." >&2
+    echo "       The pipeline wrote its output somewhere else -- check that" >&2
+    echo "       CAGEFLOW_OUT_DIR is respected by src/main.py's load_config()." >&2
+    ls -la "$OUT_DIR" >&2
+    exit 1
+fi

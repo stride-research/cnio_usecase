@@ -91,7 +91,14 @@ def load_config() -> dict:
         "colabfold_bin": str(colabfold / "colabfold-conda" / "bin" / "colabfold_batch"),
         "colabfold_data": str(colabfold / "colabfold"),
         "colabfold_python": str(colabfold / "colabfold-conda" / "bin" / "python"),
-        "out_dir": str(HERE / "results"),
+        # run_sbatch.sh owns this when it sets CAGEFLOW_OUT_DIR, so there is ONE
+        # source of truth instead of two independently-computed paths. Computing
+        # it here as well is exactly how job 24307 silently wrote to src/results/
+        # while the launch script expected <track_root>/results/, and how a CI run
+        # wrote its whole output into a scratch clone that was then deleted --
+        # same failure mode, twice, in two different places. Fallback keeps
+        # standalone `python src/main.py` working unchanged.
+        "out_dir": os.environ.get("CAGEFLOW_OUT_DIR") or str(HERE / "results"),
     })
     return cfg
 
