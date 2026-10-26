@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import pickle
 
 
 
@@ -78,7 +79,8 @@ async def rosetta(handle, docked_oligomers, geometries, designed_oligomers, scor
                 config["symmetry"], config.get("contact_dist", 8.0),
                 build_fn=symmdef.write_point_group_symmdef)
             # assembly_pdb is deliberately NOT stored here -- it is raw PDB text and `pre` is
-            # shipped once per sequence task. The child re-reads it from its dock file instead.
+            # shipped once per sequence task. The child reads it from its dock file instead
+            # (dock_files, below).
             dock_precompute[i] = {
                 "chain_ids": chain_ids, "design_positions": design_positions,
                 "symm_file": symm_file,
@@ -107,10 +109,13 @@ async def rosetta(handle, docked_oligomers, geometries, designed_oligomers, scor
 
     @handle.worker(name="score_with_rosetta",
              description="Rosetta interface scoring for one cleared-cutoff sequence")
-    async def task_rosetta(dock_index: int, list_index: int, docked_oligomer: dict, seq: str,
+    async def task_rosetta(dock_index: int, list_index: int, dock_file: str, seq: str,
                            pre: dict):
+        import pickle
         from CageFlow import _score_one_sequence_rosetta, _score_one_sequence_rosetta_2c
 
+        with open(dock_file, "rb") as f:
+            docked_oligomer = pickle.load(f)
         if two_component:
             result = _score_one_sequence_rosetta_2c(
                 docked_oligomer, seq, pre["chains_a"], pre["chains_b"], pre["mpnn_cfg"],
@@ -121,12 +126,25 @@ async def rosetta(handle, docked_oligomers, geometries, designed_oligomers, scor
                 docked_oligomer, pre["symm_file"], chi_min, relax, seed=rosetta_seed)
         return dock_index, list_index, result
 
-    rosetta_tasks = [
-        task_rosetta(i, j, docked_oligomers[i], designed_oligomers[i][j]["seq"],
-                     dock_precompute[i])
-        for i, j in rosetta_items
-    ]
-    rosetta_task_results = await asyncio.gather(*rosetta_tasks) if rosetta_tasks else []
+    # Each task gets its dock as a file path, not the dock itself: a dock is the whole
+    # assembly as PDB text plus its copies (about 5.5 MB for 5dii), and every argument is
+    # cloudpickled into every per-sequence task. Written once per dock here, unpickled by
+    # the child into the same dict it used to receive, and removed once the tasks return.
+    dock_files = {}
+    try:
+        for i in sorted({i for i, _ in rosetta_items}):
+            dock_files[i] = out_dir / f"dock_{i}" / "docked_oligomer.pkl"
+            dock_files[i].write_bytes(
+                pickle.dumps(docked_oligomers[i], protocol=pickle.HIGHEST_PROTOCOL))
+        rosetta_tasks = [
+            task_rosetta(i, j, str(dock_files[i]), designed_oligomers[i][j]["seq"],
+                         dock_precompute[i])
+            for i, j in rosetta_items
+        ]
+        rosetta_task_results = await asyncio.gather(*rosetta_tasks) if rosetta_tasks else []
+    finally:
+        for path in dock_files.values():
+            path.unlink(missing_ok=True)
 
     scored_by_key: dict[tuple[int, int], dict] = {}
     for dock_index, list_index, result in rosetta_task_results:
