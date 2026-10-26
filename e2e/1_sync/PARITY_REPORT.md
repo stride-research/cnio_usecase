@@ -99,7 +99,7 @@ attribute the match to something both current implementations happen to share.
 | Stage | Resource | Track A elapsed (n) | Track B elapsed (n) | Note |
 |---|---|---|---|---|
 | dock_setup | cpu | — (not its own stage in A) | 2.90s (1) | B times setup+scan as one task; A's equivalent cost is folded into its own startup, not broken out |
-| prescore | cpu | 32.67s (510 tasks) | 31.46s (8 tasks) | **Same total work, different granularity.** A dispatches one task per solution through her `Executor`; B chunks into `N_PRESCORE_CHUNKS=8` AsyncFlow tasks. Wall-clock cost is comparable; task count is not a meaningful comparison across tracks. |
+| prescore | cpu | 32.67s (510 tasks) | 31.46s (8 tasks) | **Same total work, different granularity.** A dispatches one task per solution through her `Executor`; B chunks into `N_PRESCORE_CHUNKS=8` AsyncFlow tasks. Total task time is comparable; wall-clock cost is not, since B's 8 chunks run at once (see caveat 5). Task count is not a meaningful comparison across tracks. |
 | dock_oligomer | cpu | 0.61s (4) | 0.84s (1) | A: one task per dock. B: one task, internal loop over 4 docks (DESIGN.md's "single-task" granularity for this stage). |
 | evaluate_geometry | cpu | 0.46s (4) | 0.71s (1) | same granularity difference as above |
 | select_top_docks | cpu | folded into A's sequential call, not separately timed | 0.20s (1) | — |
@@ -108,7 +108,7 @@ attribute the match to something both current implementations happen to share.
 | score_with_rosetta | cpu | 244.42s (4) | 262.85s (4) | **Match.** Same leaf worker, same arguments, same cost — exactly what should happen when nothing about dispatch changes the underlying compute. |
 | fold_msa | cpu | 17.58s (4), 11.45 actual cpu-s (cpu/elapsed=0.65) | *(not a separate stage in B)* | A measures the MSA fetch's network-wait separately and overlaps it with GPU work. B currently folds this wait time into `fold_oligomer`'s elapsed time — see caveats. |
 | fold_oligomer | gpu | 203.79s (4) | 387.47s (4) | **Not a like-for-like number** — see caveats. Includes both the MSA-wait-attribution asymmetry and a real GPU-concurrency effect (see caveat 2). |
-| **wall_s (total)** | | **544s** | **209s** | 2.6x. With zero real concurrency in B yet beyond per-stage `asyncio.gather` (every stage still `await`s the previous one; see `main.py`'s docstring), this gap is almost entirely dispatch/bookkeeping overhead in Track A's `Executor`/`Budget` path, not parallelism. |
+| **wall_s (total)** | | **544s** | **209s** | 2.6x, but **not an orchestration speed-up**. A runs one task at a time (its tasks above sum to 539.6s of its 544s). B runs about 3.5 at once (725.6s of task time in 209s) through per-stage `asyncio.gather`, even though every stage still `await`s the previous one (see `main.py`'s docstring), and on 64 CPUs against A's 8. See caveat 5. |
 
 ### Caveats on the system-metrics comparison, read before citing any of it
 
@@ -157,6 +157,38 @@ attribute the match to something both current implementations happen to share.
    `Budget`/`Compute` resource-accounting lines have no line-for-line Track B log
    equivalent — `budget_summary.json` still does not exist for Track B, by design, since
    Track B never instantiates her `Budget`/`Executor` (see `DESIGN.md`).
+
+5. **The 2.6x wall-clock gap compares serial on 8 CPUs against parallel-within-each-stage
+   on 64 CPUs. It does not measure orchestration overhead.** An earlier version of this
+   table attributed the gap almost entirely to dispatch/bookkeeping in Track A's
+   `Executor`/`Budget` path. The table's own numbers rule that out:
+   - **Track A runs one task at a time.** Its tasks sum to 539.6s against `wall_s=544`,
+     leaving 4.4s for everything that is not a timed task: start-up, the steps it does not
+     time separately, and any `Executor`/`Budget` cost. That fits
+     `"executor": "sequential"` (`original/config.json`), whose `submit()` runs each task
+     inline (`metrics/METRICS.md`). If `fold_msa` did overlap GPU work in this run, as its
+     row says, the leftover is at most 22s. Either way it is a few percent of the 335s gap.
+   - **Track B runs about 3.5 tasks at a time.** Its tasks sum to 725.6s against
+     `wall_s=209`. The per-stage `asyncio.gather` starts 8 prescore chunks, 2 designs,
+     4 Rosetta scores and 4 folds together. Taking each of those four stages as long as its
+     mean task, they take about 186s (fold 96.9s, Rosetta 65.7s, design 19.5s, prescore
+     3.9s). Track A runs the same four stages one task at a time in 538.5s (MSA included).
+     That 352s difference is more than the whole 335s gap. Track B gives about 17s of it
+     back: 18s that no task accounts for, against A's 4s (Dragon bring-up, start-up and
+     wrap-up, and any stage whose slowest task ran past its mean), and 4.8s against 1.1s
+     in its other steps.
+   - **The two runs did not hold the same resources.** Track A booked 8 CPUs and 32 GiB
+     (`-c 8 --mem=32G`). Track B booked 64 CPUs (`--ntasks-per-node=8 -c 8`) and, with no
+     `--mem`, 56.3 GiB (64 × `DefMemPerCPU=900` MiB). CPU time from sacct (`TotalCPU`) was
+     11:45 for job 24194 and 18:13 for job 24197: Track B used 55% more CPU time for the
+     same science (52–58% for the later runs, Track A's 24292 against Track B's 24293,
+     24307 and 24309). Some of that is probably the four ColabFold processes sharing one
+     GPU (caveat 2), some is Dragon's runtime. These runs cannot separate the two.
+   - **A fair comparison has not been run yet.** It is Track A with her parallel executor,
+     `"process"` (the one her full-scale config uses), on the same 64 CPUs and 1 GPU as
+     Track B. Then both tracks run tasks concurrently, and the gap measures orchestration
+     rather than serial against parallel. That run needs GPU time on `fortran` under
+     `biostructure`. Until it exists, do not cite the 2.6x as an orchestration speed-up.
 
 ---
 
