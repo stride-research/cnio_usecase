@@ -73,20 +73,22 @@ load_dotenv(ENV_PATH)
 
 
 def load_config() -> dict:
-    """Science parameters from the file; deployment paths from $HOME at runtime.
+    """Science parameters from the file; deployment paths at runtime.
 
     Same split as today: a committed config works under whoever's home it runs
     in, so the deployment-location keys are deliberately absent from the file
-    and are overwritten here.
+    and are overwritten here. They come from CNIO_SOFTWARE_DIR, which
+    run_sbatch.sh exports (default ~/software) and records in provenance.txt.
+    No fallback here, for the same reason as out_dir below.
     """
     cfg = json.loads(CONFIG_PATH.read_text())
-    home = Path.home()
-    cageflow_dir = home / "software" / "CageFlow"
-    colabfold = home / "software" / "localcolabfold_install" / "localcolabfold"
+    software = Path(os.environ["CNIO_SOFTWARE_DIR"])
+    cageflow_dir = software / "CageFlow"
+    colabfold = software / "localcolabfold_install" / "localcolabfold"
     cfg.update({
         "cageflow_dir": str(cageflow_dir),
-        "cage_designer_path": str(home / "software" / "ProteinBuilder"),
-        "mpnn_dir": str(home / "software" / "ProteinMPNN"),
+        "cage_designer_path": str(software / "ProteinBuilder"),
+        "mpnn_dir": str(software / "ProteinMPNN"),
         "scaffold_pdb": str(cageflow_dir / "scaffolds" / "5dii_trimer.pdb"),
         "colabfold_bin": str(colabfold / "colabfold-conda" / "bin" / "colabfold_batch"),
         "colabfold_data": str(colabfold / "colabfold"),
