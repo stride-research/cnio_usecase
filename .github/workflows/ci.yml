@@ -1,9 +1,37 @@
 name: CageFlow CI
 
-on: pull_request
+# Every run submits a GPU job to the cluster as javidsegura, so CI runs only
+# code that someone with write access put in this repo: PRs from branches of
+# this repo, or a manual run on any branch, tag, or commit. See README.md, "CI".
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or commit SHA to test
+        type: string
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+# One run per PR (per ref for manual runs). A new push cancels the run in
+# progress; that run's cancelled() step below scancels its Slurm job.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('ref-{0}', inputs.ref) }}
+  cancel-in-progress: true
 
 jobs:
   test:
+    # GitHub evaluates this before sending the job to a runner, so PRs from
+    # forks are skipped without reaching the cluster. A pull_request run uses
+    # the workflow file from the PR itself, though, so a fork PR that edits
+    # this file is held back only by GitHub's approval of runs from outside
+    # contributors -- which maintainers must not grant.
+    # No status function on purpose: the implicit success() is what lets a
+    # superseded run be cancelled -- an always() here would keep it running.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, scitech]
     # Generous and native, not a shell-level `timeout` wrapper. sbatch --wait is a
     # CLIENT-side block -- killing that client does not cancel the Slurm job, which
@@ -14,17 +42,38 @@ jobs:
     # ceiling generous enough that hitting it is itself a real, exceptional signal.
     timeout-minutes: 240
     env:
-      RUNDIR: /data/biostructure/users/javidsegura/cnio_flowgentic/ci_runs/pr-${{ github.event.number }}-${{ github.sha }}
+      CI_RUNS: /data/biostructure/users/javidsegura/cnio_flowgentic/ci_runs
     steps:
+      # The PR head, not the merge commit GitHub builds for pull_request.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || inputs.ref }}
+          persist-credentials: false
+
+      # Resolve the commit once: the same SHA names RUNDIR and is what
+      # ci_run.sh fetches, even if the branch moves while the job runs. Run id
+      # and attempt keep re-runs and repeated manual runs in separate dirs, so
+      # a stale .jobid or results/ from an earlier run is never picked up.
+      - env:
+          PREFIX: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'dispatch' }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "SHA=$sha" >> "$GITHUB_ENV"
+          echo "RUNDIR=$CI_RUNS/$PREFIX-$sha-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+
       - id: run
-        run: scripts/ci_run.sh ${{ github.event.pull_request.head.sha }} "$RUNDIR"
+        run: scripts/ci_run.sh "$SHA" "$RUNDIR"
 
       # Cleanup-on-cancel: the ONLY piece that needs the Actions-native cancelled()
       # check, kept out of ci_run.sh entirely so a human running it by hand never
       # sees it. Without this, killing the check leaves the Slurm job still running
-      # on shared GPU time with nothing watching it.
+      # on shared GPU time with nothing watching it. No .jobid means nothing was
+      # submitted yet (or RUNDIR was never set), so there is nothing to cancel.
       - if: cancelled()
-        run: scancel "$(cat "$RUNDIR/.jobid")"
+        run: |
+          if [ -n "$RUNDIR" ] && [ -s "$RUNDIR/.jobid" ]; then
+            scancel "$(cat "$RUNDIR/.jobid")"
+          fi
 
       - if: always()
         # outcome comes from the `run` step's own GitHub-tracked status, not a
