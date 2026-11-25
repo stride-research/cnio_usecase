@@ -71,5 +71,6 @@ done
 # first; results/ was already written straight to $RUNDIR.
 cp -f "$TRACK_DIR/sbatch.out" "$RUNDIR/sbatch.out" 2>/dev/null || true
 cp -f "$TRACK_DIR/sbatch.err" "$RUNDIR/sbatch.err" 2>/dev/null || true
+[ "$STATUS" -ne 0 ] || python3 "$TRACK_DIR/scripts/check_science.py" "$RUNDIR/results" || STATUS=$?
 
 exit "$STATUS"

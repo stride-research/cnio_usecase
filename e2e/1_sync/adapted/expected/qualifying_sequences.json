@@ -1,0 +1,576 @@
+{
+  "_README": "Expected results of config/config.json for scripts/check_science.py. md5 is the whole qualifying_sequences.csv. per_dock holds, for each dock_index, the values of each listed column, sorted; they are compared in any row order and at the precision they are written with. config_sha256 covers the config's science keys (see IGNORED_CONFIG_KEYS). Re-record only from a run you trust, after a deliberate change (environment, CageFlow, config): scripts/check_science.py --record RESULTS_DIR.",
+  "recorded_from": "Job 24399 (Track B, COMPLETED 2026-10-23 21:43:58-21:47:29 on fortran, cnio_usecase a052214 through scripts/ci_run.sh), its results/ copied read-only. Byte-identical (md5 68be8e5176d537208bee8671d2c6221a) to job 24395 (Track B, 2026-10-23) and job 24292 (Track A, 2026-10-21), and to the md5 PARITY_REPORT.md gives for jobs 24194 and 24197 (2026-10-20).",
+  "config_sha256": "e64a27355a8a964c79390e09b45f429725d0bb9d4ab073b1e293fc4523dfe766",
+  "qualifying_sequences.csv": {
+    "md5": "68be8e5176d537208bee8671d2c6221a",
+    "rows": 4,
+    "columns": [
+      "dock_index",
+      "sample",
+      "sequence_a",
+      "sequence_b",
+      "mpnn_score",
+      "rosetta_score_cutoff",
+      "cb_score",
+      "cb_p_value",
+      "n_cb10",
+      "cb_ok",
+      "n_cb_collide",
+      "steric_ok",
+      "n_carbon_pairs",
+      "n_floor_pairs",
+      "total_sasa",
+      "hydrophobic_sasa",
+      "rel_hydrophobic_sasa",
+      "dG_separated",
+      "dSASA",
+      "hbonds",
+      "packstat",
+      "shape_complementarity",
+      "interface_delta_hbond_unsat",
+      "unsat_hbonds_whole_pose",
+      "complex_energy",
+      "num_interface_residues",
+      "per_residue_energy",
+      "total_hbond_energy",
+      "separated_interface_energy_ratio",
+      "side1_score",
+      "side2_score",
+      "side1_nres",
+      "side2_nres",
+      "pair_dG_separated",
+      "pair_dSASA",
+      "pair_hbonds",
+      "pair_packstat",
+      "pair_shape_complementarity",
+      "pair_interface_delta_hbond_unsat",
+      "pair_unsat_hbonds_whole_pose",
+      "pair_complex_energy",
+      "pair_num_interface_residues",
+      "pair_per_residue_energy",
+      "pair_total_hbond_energy",
+      "pair_separated_interface_energy_ratio",
+      "pair_side1_score",
+      "pair_side2_score",
+      "pair_side1_nres",
+      "pair_side2_nres",
+      "dG_int_symmetric",
+      "sap_complex",
+      "sap_a_isolated",
+      "sap_b_isolated",
+      "n_asu_chains",
+      "n_rest_chains",
+      "pair_n_ca_contacts",
+      "n_designed_threaded",
+      "n_designed_already_native",
+      "n_decoded",
+      "n_declared_designed",
+      "n_applied_outside_declared",
+      "dock_group_mpnn_score",
+      "dock_group_ddg"
+    ],
+    "per_dock": {
+      "1": {
+        "sample": [
+          "1",
+          "2"
+        ],
+        "sequence_a": [
+          "ERFDATPPXXEPDRPALGVLELTSIARGIRVADVALRTAPSLLLMSRPVCSGKHLLMMRGQVAEVEEAMAAARGVAELRGGSLLDELELPYAHEQLWRFLDAPVVADAXXXXXESVIVVETTTVCAAIDAADAALKTAPVVLRDMRLAIGIAGKAFFTLTGEPADVRAAAVVVGRVAGARLLDIEFIERPVDELRGRLFF",
+          "ERFDATPPXXEPDRPALGVLELTSIARGIRVADVALRTAPSLLLMSRPVCSGKHLLMMRGQVAEVEEAMRAARGVANLRGGSLLDELELPYAHEQLWRFLDAPVVADAXXXXXESVIVVETTTVCAAIDAADAALKTAPVVLRDMRLAIGIAGKAFFTLTGEPADVERAAVVVGEVAGDRLLDIEHIPRPVDELRGRLFF"
+        ],
+        "sequence_b": [
+          "",
+          ""
+        ],
+        "mpnn_score": [
+          "0.6502",
+          "0.6598"
+        ],
+        "rosetta_score_cutoff": [
+          "2.0",
+          "2.0"
+        ],
+        "cb_score": [
+          "0.19009381475848217",
+          "0.19009381475848217"
+        ],
+        "cb_p_value": [
+          "0.96",
+          "0.96"
+        ],
+        "n_cb10": [
+          "161",
+          "161"
+        ],
+        "cb_ok": [
+          "True",
+          "True"
+        ],
+        "n_cb_collide": [
+          "0",
+          "0"
+        ],
+        "steric_ok": [
+          "False",
+          "False"
+        ],
+        "n_carbon_pairs": [
+          "0",
+          "0"
+        ],
+        "n_floor_pairs": [
+          "12",
+          "12"
+        ],
+        "total_sasa": [
+          "78493.03263400498",
+          "80040.79858888901"
+        ],
+        "hydrophobic_sasa": [
+          "39128.13245286051",
+          "39316.82600222621"
+        ],
+        "rel_hydrophobic_sasa": [
+          "50960.84157923277",
+          "51621.663675133226"
+        ],
+        "dG_separated": [
+          "-65.94444153013228",
+          "-46.641808093647796"
+        ],
+        "dSASA": [
+          "5369.838157815117",
+          "5987.705238093114"
+        ],
+        "hbonds": [
+          "23",
+          "35"
+        ],
+        "packstat": [
+          "0.6060073339146458",
+          "0.6425655578058771"
+        ],
+        "shape_complementarity": [
+          "0.5489988029003143",
+          "0.5626577138900757"
+        ],
+        "interface_delta_hbond_unsat": [
+          "37",
+          "38"
+        ],
+        "unsat_hbonds_whole_pose": [
+          "270.0",
+          "280.0"
+        ],
+        "complex_energy": [
+          "-3877.9926455304835",
+          "-3795.536122300082"
+        ],
+        "num_interface_residues": [
+          "234",
+          "234"
+        ],
+        "per_residue_energy": [
+          "-0.6272295216697876",
+          "-0.49780974003041883"
+        ],
+        "total_hbond_energy": [
+          "-24.31253124276745",
+          "-11.962521468643965"
+        ],
+        "separated_interface_energy_ratio": [
+          "-0.011013307921472334",
+          "-0.008685887120409127"
+        ],
+        "side1_score": [
+          "-75.74703008693633",
+          "-59.40628184251926"
+        ],
+        "side2_score": [
+          "-71.02467798379399",
+          "-57.08119732459877"
+        ],
+        "side1_nres": [
+          "117",
+          "117"
+        ],
+        "side2_nres": [
+          "117",
+          "117"
+        ],
+        "pair_dG_separated": [
+          "-22.603495833954412",
+          "-15.979769197724863"
+        ],
+        "pair_dSASA": [
+          "1782.171508015923",
+          "1990.2704037072199"
+        ],
+        "pair_hbonds": [
+          "8",
+          "12"
+        ],
+        "pair_packstat": [
+          "0.6218652446547178",
+          "0.643149784208178"
+        ],
+        "pair_shape_complementarity": [
+          "0.5515623688697815",
+          "0.5640546083450317"
+        ],
+        "pair_interface_delta_hbond_unsat": [
+          "12",
+          "13"
+        ],
+        "pair_unsat_hbonds_whole_pose": [
+          "110.0",
+          "111.0"
+        ],
+        "pair_complex_energy": [
+          "-1903.2792026272264",
+          "-1850.1735588231834"
+        ],
+        "pair_num_interface_residues": [
+          "78",
+          "78"
+        ],
+        "pair_per_residue_energy": [
+          "-0.6317584508937711",
+          "-0.49999901391466123"
+        ],
+        "pair_total_hbond_energy": [
+          "-8.415175602154664",
+          "-4.105084803341598"
+        ],
+        "pair_separated_interface_energy_ratio": [
+          "-0.011356997416959788",
+          "-0.008966459808077063"
+        ],
+        "pair_side1_score": [
+          "-22.772095773481865",
+          "-18.878229644419548"
+        ],
+        "pair_side2_score": [
+          "-26.505063396232316",
+          "-20.121693440924016"
+        ],
+        "pair_side1_nres": [
+          "39",
+          "39"
+        ],
+        "pair_side2_nres": [
+          "39",
+          "39"
+        ],
+        "dG_int_symmetric": [
+          "-33.77011999999997",
+          "-32.082956"
+        ],
+        "sap_complex": [
+          "",
+          ""
+        ],
+        "sap_a_isolated": [
+          "",
+          ""
+        ],
+        "sap_b_isolated": [
+          "",
+          ""
+        ],
+        "n_asu_chains": [
+          "",
+          ""
+        ],
+        "n_rest_chains": [
+          "",
+          ""
+        ],
+        "pair_n_ca_contacts": [
+          "181",
+          "181"
+        ],
+        "n_designed_threaded": [
+          "",
+          ""
+        ],
+        "n_designed_already_native": [
+          "",
+          ""
+        ],
+        "n_decoded": [
+          "",
+          ""
+        ],
+        "n_declared_designed": [
+          "",
+          ""
+        ],
+        "n_applied_outside_declared": [
+          "",
+          ""
+        ],
+        "dock_group_mpnn_score": [
+          "0.655",
+          "0.655"
+        ],
+        "dock_group_ddg": [
+          "-56.29312481189004",
+          "-56.29312481189004"
+        ]
+      },
+      "2": {
+        "sample": [
+          "1",
+          "2"
+        ],
+        "sequence_a": [
+          "ERFDATPPXXEPDRPALGVLELTSIARGITVADAALKRAPSLLLMSRPVCSGKHLLMMRGQPADVAASMAAALEVARAGAGSLLDHLLLPAAHEQLWRFLDAPVVADAXXXXXESVIIVETTTVCAAIASADAALKTAPVVLRDMRLAIGIAGKAFFTLTGELADVEAAAAVVREVAGGRLLELACIARPVDELRGRLFF",
+          "ERFDATPPXXEPDRPALGVLELTSIARGITVADAALKRAPSLLLMSRPVCSGKHLLMMRGQPADVLASMAAARRVARAGAGSLLDELLLPAAHEQLWRFLDAPVVADAXXXXXESVIIVETTTVCAAIAAADAALKTAPVVLRDMRLAIGIAGKAFFTLTGELADVEAAAEVVRRVAGGRLLELACIARPVDELRGRLFF"
+        ],
+        "sequence_b": [
+          "",
+          ""
+        ],
+        "mpnn_score": [
+          "0.6176",
+          "0.6594"
+        ],
+        "rosetta_score_cutoff": [
+          "2.0",
+          "2.0"
+        ],
+        "cb_score": [
+          "0.16318787799041062",
+          "0.16318787799041062"
+        ],
+        "cb_p_value": [
+          "0.96",
+          "0.96"
+        ],
+        "n_cb10": [
+          "132",
+          "132"
+        ],
+        "cb_ok": [
+          "True",
+          "True"
+        ],
+        "n_cb_collide": [
+          "0",
+          "0"
+        ],
+        "steric_ok": [
+          "False",
+          "False"
+        ],
+        "n_carbon_pairs": [
+          "12",
+          "12"
+        ],
+        "n_floor_pairs": [
+          "24",
+          "24"
+        ],
+        "total_sasa": [
+          "79028.63960065183",
+          "79957.92968114358"
+        ],
+        "hydrophobic_sasa": [
+          "39879.32526572643",
+          "41726.15429551093"
+        ],
+        "rel_hydrophobic_sasa": [
+          "52022.920343957696",
+          "52675.78478305904"
+        ],
+        "dG_separated": [
+          "1129.6366865092778",
+          "1136.1240807923505"
+        ],
+        "dSASA": [
+          "3889.958925124652",
+          "5162.971836912637"
+        ],
+        "hbonds": [
+          "0",
+          "3"
+        ],
+        "packstat": [
+          "0.5668187814370598",
+          "0.6523717391395919"
+        ],
+        "shape_complementarity": [
+          "0.3904741704463959",
+          "0.46426650881767273"
+        ],
+        "interface_delta_hbond_unsat": [
+          "24",
+          "30"
+        ],
+        "unsat_hbonds_whole_pose": [
+          "187.0",
+          "199.0"
+        ],
+        "complex_energy": [
+          "-2058.401209997945",
+          "-2022.057694511243"
+        ],
+        "num_interface_residues": [
+          "222",
+          "222"
+        ],
+        "per_residue_energy": [
+          "3.7427142435196865",
+          "3.8161803177526985"
+        ],
+        "total_hbond_energy": [
+          "-3.0488495870290184",
+          "0.0"
+        ],
+        "separated_interface_energy_ratio": [
+          "0.21879582577478865",
+          "0.2920658296555005"
+        ],
+        "side1_score": [
+          "413.4485882461084",
+          "423.0429950571615"
+        ],
+        "side2_score": [
+          "417.4339738152622",
+          "424.1490354839376"
+        ],
+        "side1_nres": [
+          "111",
+          "111"
+        ],
+        "side2_nres": [
+          "111",
+          "111"
+        ],
+        "pair_dG_separated": [
+          "376.3832580537762",
+          "379.6690639303347"
+        ],
+        "pair_dSASA": [
+          "1319.4452943851688",
+          "1761.8627016993394"
+        ],
+        "pair_hbonds": [
+          "0",
+          "0"
+        ],
+        "pair_packstat": [
+          "0.6229714554732968",
+          "0.6347986687035625"
+        ],
+        "pair_shape_complementarity": [
+          "0.39853931963443756",
+          "0.46264421939849854"
+        ],
+        "pair_interface_delta_hbond_unsat": [
+          "8",
+          "9"
+        ],
+        "pair_unsat_hbonds_whole_pose": [
+          "91.0",
+          "94.0"
+        ],
+        "pair_complex_energy": [
+          "-1782.8166937753674",
+          "-1766.8701678342413"
+        ],
+        "pair_num_interface_residues": [
+          "74",
+          "74"
+        ],
+        "pair_per_residue_energy": [
+          "3.7450097670517466",
+          "3.8307894498464297"
+        ],
+        "pair_total_hbond_energy": [
+          "0.0",
+          "0.0"
+        ],
+        "pair_separated_interface_energy_ratio": [
+          "0.21362802997688168",
+          "0.2877489999365618"
+        ],
+        "pair_side1_score": [
+          "139.5147992486528",
+          "141.83670205868611"
+        ],
+        "pair_side2_score": [
+          "137.6159235131765",
+          "141.6417172299498"
+        ],
+        "pair_side1_nres": [
+          "37",
+          "37"
+        ],
+        "pair_side2_nres": [
+          "37",
+          "37"
+        ],
+        "dG_int_symmetric": [
+          "-12.000697962742137",
+          "-6.649657962742168"
+        ],
+        "sap_complex": [
+          "",
+          ""
+        ],
+        "sap_a_isolated": [
+          "",
+          ""
+        ],
+        "sap_b_isolated": [
+          "",
+          ""
+        ],
+        "n_asu_chains": [
+          "",
+          ""
+        ],
+        "n_rest_chains": [
+          "",
+          ""
+        ],
+        "pair_n_ca_contacts": [
+          "150",
+          "150"
+        ],
+        "n_designed_threaded": [
+          "",
+          ""
+        ],
+        "n_designed_already_native": [
+          "",
+          ""
+        ],
+        "n_decoded": [
+          "",
+          ""
+        ],
+        "n_declared_designed": [
+          "",
+          ""
+        ],
+        "n_applied_outside_declared": [
+          "",
+          ""
+        ],
+        "dock_group_mpnn_score": [
+          "0.6385000000000001",
+          "0.6385000000000001"
+        ],
+        "dock_group_ddg": [
+          "1132.880383650814",
+          "1132.880383650814"
+        ]
+      }
+    }
+  }
+}
