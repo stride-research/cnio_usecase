@@ -3,13 +3,36 @@ name = "cnio_usecase"
 version = "0.1.0"
 description = "CNIO CageFlow pipeline: the domain-specific glue, stages, and configs that run on top of flowgentic"
 readme = "README.md"
-requires-python = ">=3.11"
+# dragonhpc 0.14.0 has wheels for CPython 3.10-3.13 on Linux x86_64 only, and no sdist.
+# The cluster uses EESSI's Python 3.11.4.
+requires-python = ">=3.11,<3.14"
 
+# The orchestration stack, as checked on rust. The science stack (CageFlow and what it
+# imports) is not installed from here: see INSTALL.md. requirements/rust-orchestration.txt
+# pins everything below and its dependencies.
 dependencies = [
-    "flowgentic[demos] @ git+https://github.com/stride-research/flowgentic.git@feat/cnio-naive-pipeline",
+    # feat/cnio-naive-pipeline at 2eae782. The branch moves, and flowgentic main is a
+    # different package under the same name, without handle/metrics/discord.
+    "flowgentic @ git+https://github.com/stride-research/flowgentic.git@2eae782a34ac4b9da12ea886c4fe1961c24d31cb",
+    "radical.asyncflow==0.5.1",
+    # main.py imports DragonExecutionBackendV1, which RHAPSODY removed in 0.5.0.
+    "rhapsody-py[dragon]==0.4.0",
+    "dragonhpc==0.14.0",
+    "python-dotenv>=1.0",
+    # metrics/schema.py
+    "pydantic>=2.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
 ]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# Nothing in this repo is imported as an installed package: the pipeline runs from the
+# checkout. Without this, setuptools finds e2e/, metrics/ and isolation/ and refuses to build.
+[tool.setuptools]
+packages = []
