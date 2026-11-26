@@ -35,11 +35,12 @@ import time
 
 #: How many prescore chunks to split a dock run's pose grid into -- mirrors her own
 #: _chunk_prescore's chunking (see DESIGN.md's dock/prescore row), run as AsyncFlow tasks
-#: instead of through _charge(). Read from the Slurm allocation rather than os.cpu_count():
-#: these nodes have 512 logical CPUs but our sbatch asks for 8, and os.cpu_count() reports the
-#: former -- which is exactly the mismatch that drained three of Laura's nodes when ProteinMPNN
+#: instead of through _charge(). One chunk per CPU the job holds: SLURM_CPUS_PER_TASK, the -c in
+#: run_sbatch.sh. Not os.cpu_count(): it reports all 512 logical CPUs of a fortran node whatever
+#: the job holds -- exactly the mismatch that drained three of Laura's nodes when ProteinMPNN
 #: sized its own pool that way (notes/handover_2026-10-12.md). Falls back to 8 only when run
-#: outside a Slurm allocation.
+#: outside a Slurm allocation. The count does not change which poses are kept: chunks are
+#: contiguous, gathered in order, and ranked by one stable sort over all of them.
 N_PRESCORE_CHUNKS = int(os.environ.get("SLURM_CPUS_PER_TASK") or 8)
 
 

@@ -9,9 +9,22 @@
 #SBATCH --qos=biostructure-priority-qos
 #SBATCH --gres=gpu:rtx6000bb:1
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=8
-#SBATCH -c 8
+# One task: `dragon -s` runs every stage inside this one allocation, and Slurm binds
+# the job to the CPUs it books (task/affinity), so -c is what the stages get. 32 CPUs
+# are 16 cores on fortran (2 threads per core). The widest stage is design: two
+# ProteinMPNN runs of mpnn_threads=6. Runs of this config used about 5 CPUs on
+# average. dock.py splits prescore into -c chunks.
+#SBATCH --ntasks=1
+#SBATCH -c 32
+# Runs of this config peaked at 57.1-57.4 GiB MaxRSS (sacct, summed over processes),
+# mostly four concurrent ColabFold folds of about 15 GB each, plus about 5 GB of Dragon
+# /dev/shm pools. Each extra concurrent fold needs about 15 GB more. rust does not
+# enforce --mem (ConstrainRAMSpace=no); it tells the scheduler what this job holds.
+#SBATCH --mem=80G
 #SBATCH -t 00:30:00
+# The time limit sends no SIGTERM on rust, so ask for one 2-3 min ahead: the run
+# then stops and cleans up /dev/shm (see the end of this script) before the kill.
+#SBATCH --signal=B:TERM@120
 #SBATCH -J cf_adapted
 # Relative, not absolute: SBATCH directives aren't shell-expanded, so $HOME/~ don't
 # resolve here. Relies on sbatch being submitted from this directory (cwd).
@@ -109,6 +122,9 @@ write_provenance() {
     echo "host=$(hostname)"
     echo "user=$(id -un)"
     echo "slurm_job_id=${SLURM_JOB_ID:-none}"
+    echo "slurm_cpus_per_task=${SLURM_CPUS_PER_TASK:-none}"
+    echo "slurm_mem_per_node=${SLURM_MEM_PER_NODE:-none}"
+    echo "cuda_visible_devices=${CUDA_VISIBLE_DEVICES:-none}"
     echo "config=$CONFIG"
     echo "env_file=$FLOWGENTIC_ENV_FILE"
     echo "venv=$VENV"
@@ -134,18 +150,74 @@ write_provenance > "$OUT_DIR/provenance.txt"
 # HERE/"results" wins and the two silently diverge.
 export CAGEFLOW_OUT_DIR="$OUT_DIR"
 
+# Dragon's /dev/shm pools (6-8 files per runtime, several GB) outlive a run that
+# fails, is cancelled or times out. Remove this run's: owned by this user, written after START, and
+# mapped or opened by no live process, so another runtime of yours on the node
+# keeps its pools. Not dragon-cleanup: it kills every Dragon process you have on
+# the node, other jobs' included, and its -s restarts the CUDA MPS daemon.
+cleanup_shm() {
+    local f
+    if ! command -v fuser > /dev/null; then
+        echo "run_sbatch.sh: no fuser on $(hostname), /dev/shm left as it is" >&2
+        return 0
+    fi
+    find /dev/shm -maxdepth 1 -type f -user "$(id -un)" -newermt "@$START" -print0 2>/dev/null |
+        while IFS= read -r -d '' f; do
+            if ! fuser -s "$f" 2>/dev/null; then
+                rm -f "$f" && echo "run_sbatch.sh: removed $f"
+            fi
+        done || true
+}
+
+# Slurm on rust signals this script only, never dragon: scancel sends it SIGTERM
+# and kills everything KillWait (30 s) later, and --signal above does the same
+# before the time limit. So dragon runs in the background: `wait` returns at once
+# on SIGTERM (a foreground dragon would hold the trap back until the SIGKILL), and
+# after a failure, a cancel or a timeout the EXIT trap stops whatever is left of
+# dragon's runtime, then cleans up. The launcher puts itself at the head of a new
+# process group as it starts (pgid = its pid), which is what the kills target;
+# under setsid it cannot, and hangs at start-up.
+dragon_alive() {
+    kill -0 -- "-$DRAGON_PID" 2>/dev/null || kill -0 "$DRAGON_PID" 2>/dev/null
+}
+
+gone_within() {
+    local deadline=$(( SECONDS + $1 ))
+    while dragon_alive; do
+        [ "$SECONDS" -lt "$deadline" ] || return 1
+        sleep 1
+    done
+}
+
+# SIGINT, as for Ctrl-C: the launcher tears its runtime down. Then SIGKILL for
+# whatever is left, including the group of a launcher that already died.
+stop_dragon() {
+    dragon_alive || return 0
+    echo "run_sbatch.sh: stopping dragon (process group $DRAGON_PID)" >&2
+    kill -INT "$DRAGON_PID" 2>/dev/null || :
+    gone_within 10 && return 0
+    kill -KILL -- "-$DRAGON_PID" 2>/dev/null || kill -KILL "$DRAGON_PID" 2>/dev/null || :
+    gone_within 5 || :
+}
+
 # -s (single-node services only), not -w slurm -t tcp: the latter stands up Dragon's full
 # multi-node overlay even for a one-node job, and that overlay has hung here before. Nothing
-# in this pipeline is multi-node. No --mem: Dragon's /dev/shm pools are ~5GB and the node has
-# 756GB to itself; capping it just gives the pools a ceiling to hit for no benefit.
+# in this pipeline is multi-node.
 #
 # main.py lives under $FG_DIR/src -- stages/ and pipeline.py (the wiring, a
 # sibling of main.py, not inside stages/) are its own siblings, so Python's own
 # sys.path[0] (the script's own directory) is enough for `import stages` and
 # `from pipeline import cageflow` to resolve.
-
+#
+# bash starts a background command with SIGINT and SIGQUIT ignored; env puts them
+# back to the defaults a foreground dragon gets, so the launcher's SIGINT teardown
+# and its children behave as before.
 START=$(date +%s)
-dragon -s "$FG_DIR/src/main.py" "$CONFIG"
+trap 'exit 143' TERM
+env --default-signal=INT,QUIT dragon -s "$FG_DIR/src/main.py" "$CONFIG" &
+DRAGON_PID=$!
+trap '[ "$?" -eq 0 ] || { stop_dragon; cleanup_shm; }' EXIT
+wait "$DRAGON_PID"
 WALL=$(( $(date +%s) - START ))
 echo "wall_s=$WALL"
 echo "$WALL" > "$OUT_DIR/wall_s.txt"
