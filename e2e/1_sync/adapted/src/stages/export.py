@@ -5,15 +5,14 @@ import logging
 
 
 async def export(handle, docked_oligomers, designed_oligomers, rosetta_scores):
+    import CageFlow
+
     config, out_dir = handle.config, handle.out_dir
 
-    @handle.worker(name="export_af3_jobs", description="Write the AF3 job manifest")
-    async def task_export_af3(docked_oligomers: list[dict]):
-        import CageFlow as _cf
-        return _cf.export_af3_jobs(
-            designed_oligomers, docked_oligomers, rosetta_scores, config, str(out_dir))
-
-    manifest = await task_export_af3(docked_oligomers)
+    # In the parent, not in a worker, for the same reason as select.py: her docstring calls
+    # it cheap, and a worker would be shipped every dock whole to do it.
+    manifest = CageFlow.export_af3_jobs(
+        designed_oligomers, docked_oligomers, rosetta_scores, config, str(out_dir))
     logging.info(f"[export_af3] {len(manifest)} job(s) exported")
 
     return manifest
