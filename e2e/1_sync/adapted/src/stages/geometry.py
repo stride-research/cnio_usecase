@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 
 
-async def geometry(handle, docked_oligomers):
+async def geometry(handle, docked_oligomers, dock_files):
     import CageFlow
     import records
 
@@ -22,9 +22,15 @@ async def geometry(handle, docked_oligomers):
     cross_clash_dist = config["cross_clash_dist"]
 
     @handle.worker(name="evaluate_geometry", description="Clash/contact geometry evaluation")
-    async def task_geometry(docked_oligomers: list[dict]):
+    async def task_geometry(dock_files: list[str]):
+        import pickle
         from CageFlow import _evaluate_one_geometry
         from records import is_two_component
+
+        docked_oligomers = []
+        for path in dock_files:
+            with open(path, "rb") as f:
+                docked_oligomers.append(pickle.load(f))
 
         clash_dist = config.get("clash_dist", 3.0)
         contact_dist = config.get("contact_dist", 8.0)
@@ -56,7 +62,7 @@ async def geometry(handle, docked_oligomers):
     if not docked_oligomers:
         raise RuntimeError("dock must run before evaluate_geometry().")
 
-    geometries = await task_geometry(docked_oligomers)
+    geometries = await task_geometry(dock_files)
 
     n_passed = 0
     for i, g in enumerate(geometries):

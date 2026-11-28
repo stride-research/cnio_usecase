@@ -7,7 +7,7 @@ import asyncio
 import logging
 
 
-async def design(handle, docked_oligomers, geometries, selected_indices):
+async def design(handle, docked_oligomers, dock_files, geometries, selected_indices):
     import CageFlow
     import records
 
@@ -17,9 +17,13 @@ async def design(handle, docked_oligomers, geometries, selected_indices):
 
     @handle.worker(name="design_interface", resource=resource,
                 description="ProteinMPNN sequence design for one dock's interface")
-    async def task_design(dock_index: int, docked_oligomer: dict, geometry: dict):
+    async def task_design(dock_index: int, dock_file: str, geometry: dict):
+        import pickle
         from CageFlow import _design_one_interface
         import records as _records
+
+        with open(dock_file, "rb") as f:
+            docked_oligomer = pickle.load(f)
 
         residue_sets = _records.interface_residue_sets(geometry)
         dock_out_dir = out_dir / f"dock_{dock_index}"
@@ -31,7 +35,7 @@ async def design(handle, docked_oligomers, geometries, selected_indices):
         )
 
     design_tasks = [
-        task_design(i, docked_oligomers[i], geometries[i]) for i in selected_indices
+        task_design(i, dock_files[i], geometries[i]) for i in selected_indices
     ]
     design_results = await asyncio.gather(*design_tasks)
 
