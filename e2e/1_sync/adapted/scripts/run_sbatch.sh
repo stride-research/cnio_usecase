@@ -169,6 +169,9 @@ START_MARK=$(mktemp)
 cleanup_shm() {
     find /dev/shm -mindepth 1 -maxdepth 1 -user "$(id -un)" -newer "$START_MARK" \
         -exec rm -rf {} + 2>/dev/null || true
+    # Dragon's dictionary orchestrator also drops small ddict_orc_* files into the job's
+    # working directory and never removes them.
+    find "$FG_DIR" -maxdepth 1 -type f -name 'ddict_orc_*' -newer "$START_MARK" -delete 2>/dev/null || true
     rm -f "$START_MARK"
 }
 trap cleanup_shm EXIT
