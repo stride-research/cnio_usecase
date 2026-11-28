@@ -4,9 +4,15 @@
 # This is the handle-based restructure (see REPORT.md): the old PipelineState/
 # fg.task-import version that used to live at this path is gone, replaced
 # wholesale after parity was re-confirmed against it (job 24307/24309).
-#SBATCH -A biostructure
-#SBATCH -p biostructure-fortran
-#SBATCH --qos=biostructure-priority-qos
+#SBATCH -A stride
+#SBATCH -p stride-priority
+#SBATCH --qos=stride-priority-qos
+# A requeued job would rerun into a half-written run directory and leave stale Dragon
+# pools behind. Fail instead, and resubmit by hand.
+#SBATCH --no-requeue
+# Folds peak near 15 GB each and several may run at once, plus Dragon's ~5 GB of /dev/shm
+# pools (which count against this limit). Re-derive from sacct MaxRSS if concurrency changes.
+#SBATCH --mem=96G
 #SBATCH --gres=gpu:rtx6000bb:1
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
@@ -36,10 +42,28 @@ CONFIG="${1:-$FG_DIR/config/config.json}"
 VENV="${CNIO_VENV:-$HOME/.venvs/cnio_usecase}"
 SOFTWARE_DIR="${CNIO_SOFTWARE_DIR:-$HOME/software}"
 export CNIO_SOFTWARE_DIR="$SOFTWARE_DIR"
-OUT_DIR="${CNIO_CI_OUT:-$FG_DIR/results}"
+
+# One directory per job, so two runs can never overwrite each other's results or metrics.
+# The restart count is part of the id so a requeued attempt (should one ever happen) never
+# reuses its predecessor's directory. CI may still choose the directory via CNIO_CI_OUT.
+RUN_ID="${SLURM_JOB_ID:-local}_r${SLURM_RESTART_COUNT:-0}"
+export CAGEFLOW_RUN_ID="$RUN_ID"
+OUT_DIR="${CNIO_CI_OUT:-$FG_DIR/results/$RUN_ID}"
+
+# Compute nodes (verified on fortran, 2026-11-28) have no /usr/bin/git, so provenance.txt
+# recorded every checkout as `not-a-git-checkout`. EESSI is mounted there, though: use its git.
+# Appended to PATH, not prepended, so nothing in EESSI's compat layer shadows the venv's tools.
+if ! command -v git >/dev/null 2>&1; then
+    EESSI_GIT=$(ls -d /cvmfs/software.eessi.io/versions/*/compat/linux/x86_64/usr/bin/git 2>/dev/null | sort | tail -1)
+    if [ -n "$EESSI_GIT" ]; then
+        PATH="$PATH:$(dirname "$EESSI_GIT")"
+    fi
+fi
 
 # Self-contained venv: no `module load`, so PYTHONPATH is never set. See
 # context/current-implementation.md "UPDATE 2026-10-20" for why that matters.
+# Unset anyway: if a submitting shell exported one, the compute node would inherit it.
+unset PYTHONPATH
 # shellcheck source=/dev/null
 source "$VENV/bin/activate"
 export PYTHONUNBUFFERED=1
@@ -109,6 +133,7 @@ write_provenance() {
     echo "host=$(hostname)"
     echo "user=$(id -un)"
     echo "slurm_job_id=${SLURM_JOB_ID:-none}"
+    echo "run_id=$RUN_ID"
     echo "config=$CONFIG"
     echo "env_file=$FLOWGENTIC_ENV_FILE"
     echo "venv=$VENV"
@@ -136,13 +161,30 @@ export CAGEFLOW_OUT_DIR="$OUT_DIR"
 
 # -s (single-node services only), not -w slurm -t tcp: the latter stands up Dragon's full
 # multi-node overlay even for a one-node job, and that overlay has hung here before. Nothing
-# in this pipeline is multi-node. No --mem: Dragon's /dev/shm pools are ~5GB and the node has
-# 756GB to itself; capping it just gives the pools a ceiling to hit for no benefit.
+# in this pipeline is multi-node.
 #
 # main.py lives under $FG_DIR/src -- stages/ and pipeline.py (the wiring, a
 # sibling of main.py, not inside stages/) are its own siblings, so Python's own
 # sys.path[0] (the script's own directory) is enough for `import stages` and
 # `from pipeline import cageflow` to resolve.
+
+# Dragon keeps its shared-memory pools in /dev/shm (RAM, not disk) and a killed or crashed
+# run leaves them behind, holding memory on this node. Remove what this run created: files
+# owned by this user and newer than the marker below, which is touched at job start. Never
+# `dragon-cleanup`, which is not scoped to one run. The trap fires on failure and on the
+# time limit too, not only on success.
+# Assumes no other Dragon job of this user runs on the same node at the same time: the
+# match is by owner and age, so it would also remove that job's pools.
+START_MARK=$(mktemp)
+cleanup_shm() {
+    find /dev/shm -mindepth 1 -maxdepth 1 -user "$(id -un)" -newer "$START_MARK" \
+        -exec rm -rf {} + 2>/dev/null || true
+    # Dragon's dictionary orchestrator also drops small ddict_orc_* files into the job's
+    # working directory and never removes them.
+    find "$FG_DIR" -maxdepth 1 -type f -name 'ddict_orc_*' -newer "$START_MARK" -delete 2>/dev/null || true
+    rm -f "$START_MARK"
+}
+trap cleanup_shm EXIT
 
 START=$(date +%s)
 dragon -s "$FG_DIR/src/main.py" "$CONFIG"

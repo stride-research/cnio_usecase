@@ -200,7 +200,7 @@ async def main():
     for stale in metrics_dir.glob("*.jsonl"):
         stale.unlink()
 
-    job_id = os.environ.get("SLURM_JOB_ID", "local")
+    job_id = os.environ.get("CAGEFLOW_RUN_ID", os.environ.get("SLURM_JOB_ID", "local"))
     t0 = time.monotonic()
     fg_discord.run_started(job_id=job_id, node=socket.gethostname(), config=config)
 
