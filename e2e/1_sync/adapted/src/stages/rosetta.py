@@ -12,11 +12,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import pickle
 
 
-
-async def rosetta(handle, docked_oligomers, geometries, designed_oligomers, scored_designs):
+async def rosetta(handle, docked_oligomers, dock_files, geometries, designed_oligomers,
+                  scored_designs):
     import CageFlow
     import records
 
@@ -128,23 +127,14 @@ async def rosetta(handle, docked_oligomers, geometries, designed_oligomers, scor
 
     # Each task gets its dock as a file path, not the dock itself: a dock is the whole
     # assembly as PDB text plus its copies (about 5.5 MB for 5dii), and every argument is
-    # cloudpickled into every per-sequence task. Written once per dock here, unpickled by
-    # the child into the same dict it used to receive, and removed once the tasks return.
-    dock_files = {}
-    try:
-        for i in sorted({i for i, _ in rosetta_items}):
-            dock_files[i] = out_dir / f"dock_{i}" / "docked_oligomer.pkl"
-            dock_files[i].write_bytes(
-                pickle.dumps(docked_oligomers[i], protocol=pickle.HIGHEST_PROTOCOL))
-        rosetta_tasks = [
-            task_rosetta(i, j, str(dock_files[i]), designed_oligomers[i][j]["seq"],
-                         dock_precompute[i])
-            for i, j in rosetta_items
-        ]
-        rosetta_task_results = await asyncio.gather(*rosetta_tasks) if rosetta_tasks else []
-    finally:
-        for path in dock_files.values():
-            path.unlink(missing_ok=True)
+    # cloudpickled into every per-sequence task. The files are written once for the whole
+    # run by pipeline.py (dock_files.py) and removed when the run ends, so this stage
+    # neither writes nor deletes them.
+    rosetta_tasks = [
+        task_rosetta(i, j, dock_files[i], designed_oligomers[i][j]["seq"], dock_precompute[i])
+        for i, j in rosetta_items
+    ]
+    rosetta_task_results = await asyncio.gather(*rosetta_tasks) if rosetta_tasks else []
 
     scored_by_key: dict[tuple[int, int], dict] = {}
     for dock_index, list_index, result in rosetta_task_results:
