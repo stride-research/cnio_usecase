@@ -163,8 +163,8 @@ export CAGEFLOW_OUT_DIR="$OUT_DIR"
 # owned by this user and newer than the marker below, which is touched at job start. Never
 # `dragon-cleanup`, which is not scoped to one run. The trap fires on failure and on the
 # time limit too, not only on success.
-# NOTE: this also matches another job of this user running on the same node at the same
-# time. Narrow it to Dragon's own file names once those are confirmed on the cluster.
+# Assumes no other Dragon job of this user runs on the same node at the same time: the
+# match is by owner and age, so it would also remove that job's pools.
 START_MARK=$(mktemp)
 cleanup_shm() {
     find /dev/shm -mindepth 1 -maxdepth 1 -user "$(id -un)" -newer "$START_MARK" \
