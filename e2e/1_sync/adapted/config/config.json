@@ -4,6 +4,7 @@
 
     "dock_ranges": { "radius_step": 0.5, "spin_step": 1.0 },
     "max_materialized": 4,
+    "prescore_chunks": 8,
     "n_docks": 2,
     "flip": false,
     "select_by": "cbeta",

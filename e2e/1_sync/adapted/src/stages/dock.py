@@ -29,18 +29,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-import os
 import time
-
-
-#: How many prescore chunks to split a dock run's pose grid into -- mirrors her own
-#: _chunk_prescore's chunking (see DESIGN.md's dock/prescore row), run as AsyncFlow tasks
-#: instead of through _charge(). Read from the Slurm allocation rather than os.cpu_count():
-#: these nodes have 512 logical CPUs but our sbatch asks for 8, and os.cpu_count() reports the
-#: former -- which is exactly the mismatch that drained three of Laura's nodes when ProteinMPNN
-#: sized its own pool that way (notes/handover_2026-10-12.md). Falls back to 8 only when run
-#: outside a Slurm allocation.
-N_PRESCORE_CHUNKS = int(os.environ.get("SLURM_CPUS_PER_TASK") or 8)
 
 
 async def dock(handle):
@@ -53,6 +42,9 @@ async def dock(handle):
     cage_designer_path = config["cage_designer_path"]
     cross_contact_dist = config["cross_contact_dist"]
     cross_clash_dist = config["cross_clash_dist"]
+    # Explicit config value, never read from the Slurm allocation: changing `-c` must not
+    # change how many prescore tasks exist or what their ids are. main.py validates it.
+    n_prescore_chunks: int = config["prescore_chunks"]
 
     if not config.get("scaffold_pdb_b"):
         # ================================================================== dock: setup + scan ===
@@ -140,7 +132,7 @@ async def dock(handle):
         # ===================================================================== dock: prescore ===
         max_mat = config.get("max_materialized")
         if max_mat is not None and len(solutions) > min(CageFlow.MATERIALIZE_FLOOR, int(max_mat)):
-            chunk_size = math.ceil(len(solutions) / N_PRESCORE_CHUNKS)
+            chunk_size = math.ceil(len(solutions) / n_prescore_chunks)
             chunks = [solutions[i:i + chunk_size] for i in range(0, len(solutions), chunk_size)]
 
             @handle.worker(name="prescore",
@@ -343,13 +335,11 @@ async def dock(handle):
 
         # STAGE 2: pair search, fanned across chunks of candidate A -- the dominant cost
         # of two-component docking, per her own comment. config["max_workers"] is read
-        # first, exactly as her code reads it; the fallback is N_PRESCORE_CHUNKS (the
-        # Slurm-allocation-sized count), NOT os.cpu_count(), for the identical
-        # oversubscription reason N_PRESCORE_CHUNKS itself exists (see its own comment
-        # above) -- her fallback to os.cpu_count() is the same mismatch in a second place,
-        # not a second thing to faithfully copy.
+        # first, exactly as her code reads it; the fallback is config["prescore_chunks"], NOT
+        # os.cpu_count() (512 logical CPUs on these nodes, the mismatch that drained three of
+        # Laura's nodes) and NOT the Slurm allocation, so the task count stays independent of -c.
         min_cross_contacts = config.get("min_cross_contacts", 1)
-        n_chunks = max(1, min(config.get("max_workers") or N_PRESCORE_CHUNKS, len(pre_a)))
+        n_chunks = max(1, min(config.get("max_workers") or n_prescore_chunks, len(pre_a)))
         chunk_size = -(-len(pre_a) // n_chunks)
         chunks_a = [pre_a[i:i + chunk_size] for i in range(0, len(pre_a), chunk_size)]
         logging.info(f"[dock_2c] pair search: {len(pre_a)} x {len(pre_b)} = "
@@ -389,7 +379,7 @@ async def dock(handle):
         # pattern, her two-component prescore worker instead of the one-component one.
         max_mat = config.get("max_materialized")
         if max_mat is not None and len(solutions) > min(CageFlow.MATERIALIZE_FLOOR, int(max_mat)):
-            chunk_size = math.ceil(len(solutions) / N_PRESCORE_CHUNKS)
+            chunk_size = math.ceil(len(solutions) / n_prescore_chunks)
             chunks = [solutions[i:i + chunk_size] for i in range(0, len(solutions), chunk_size)]
 
             @handle.worker(name="prescore",

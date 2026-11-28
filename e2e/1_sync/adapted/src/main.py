@@ -104,6 +104,36 @@ def load_config() -> dict:
     return cfg
 
 
+DEFAULT_PRESCORE_CHUNKS = 8
+
+
+def resolve_prescore_chunks(config: dict) -> int:
+    """Validate config["prescore_chunks"] and warn if it oversubscribes the job.
+
+    The count is an experiment parameter, not a property of the allocation: it fixes how many
+    prescore tasks exist and what their ids are, so changing `-c` cannot change either.
+
+    Args:
+        config: The loaded config. Gets `prescore_chunks` set to the default when absent.
+
+    Returns:
+        The validated chunk count.
+
+    Raises:
+        ValueError: If the value is not a positive integer.
+    """
+    chunks = config.setdefault("prescore_chunks", DEFAULT_PRESCORE_CHUNKS)
+    if isinstance(chunks, bool) or not isinstance(chunks, int) or chunks < 1:
+        raise ValueError(f"prescore_chunks must be a positive integer, got {chunks!r}")
+
+    cpus_raw = os.environ.get("SLURM_CPUS_PER_TASK")
+    if cpus_raw is not None and cpus_raw.isdigit() and chunks > int(cpus_raw):
+        logging.warning(
+            f"prescore_chunks={chunks} exceeds the job's {cpus_raw} CPUs "
+            f"(SLURM_CPUS_PER_TASK): prescore tasks will contend for cores")
+    return chunks
+
+
 def _funnel(out_dir: Path, stats: list[dict]) -> dict:
     """The Discord summary, read from her documented output files, not from a
     return value. Same field names/shape `metrics/collect.py` already reads
@@ -163,6 +193,7 @@ async def main():
     # submits, the child launches, and the future never resolves (job 24049).
     config.setdefault("cross_contact_dist", CageFlow.DEFAULT_CROSS_CONTACT_DIST)
     config.setdefault("cross_clash_dist", 3.0)
+    resolve_prescore_chunks(config)
 
     metrics_dir = out_dir / "metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
