@@ -231,7 +231,7 @@ class RunMetrics(BaseModel):
     #: None when her CLI ran unassisted; "asyncflow-<version>" when ours drove it.
     orchestrator: str | None = None
     out_dir: str
-    #: The literal config dict the run was given, for provenance.
+    #: The literal config dict the run was given, for reproducibility.
     config: dict = Field(default_factory=dict)
     wall_s: float | None = None
 
