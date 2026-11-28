@@ -231,11 +231,11 @@ def check(results_dir: Path, expected_path: Path) -> int:
 def record(results_dir: Path, expected_path: Path) -> int:
     csv_path, used = run_files(results_dir)
     columns, rows = read_table(csv_path)
-    prov = results_dir / "provenance.txt"
+    snap = results_dir / "env_snapshot.txt"
     keys = ("slurm_job_id", "host", "date_utc")
     found = {}
-    if prov.is_file():
-        for line in prov.read_text().splitlines():
+    if snap.is_file():
+        for line in snap.read_text().splitlines():
             k, sep, v = line.partition("=")
             if sep and k in keys:
                 found[k] = v

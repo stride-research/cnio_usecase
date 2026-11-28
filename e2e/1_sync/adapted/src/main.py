@@ -78,7 +78,7 @@ def load_config() -> dict:
     Same split as today: a committed config works under whoever's home it runs
     in, so the deployment-location keys are deliberately absent from the file
     and are overwritten here. They come from CNIO_SOFTWARE_DIR, which
-    run_sbatch.sh exports (default ~/software) and records in provenance.txt.
+    run_sbatch.sh exports (default ~/software) and records in env_snapshot.txt.
     No fallback here, for the same reason as out_dir below.
     """
     cfg = json.loads(CONFIG_PATH.read_text())

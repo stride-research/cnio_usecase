@@ -38,7 +38,7 @@ CONFIG="${1:-$FG_DIR/config/config.json}"
 # today, CI-triggered or his own. A shared read-only install can be passed in
 # instead through CNIO_VENV and CNIO_SOFTWARE_DIR. main.py builds the CageFlow,
 # ProteinBuilder, ProteinMPNN and localcolabfold paths from CNIO_SOFTWARE_DIR,
-# so it and provenance.txt (below) always look at the same checkouts.
+# so it and env_snapshot.txt (below) always look at the same checkouts.
 VENV="${CNIO_VENV:-$HOME/.venvs/cnio_usecase}"
 SOFTWARE_DIR="${CNIO_SOFTWARE_DIR:-$HOME/software}"
 export CNIO_SOFTWARE_DIR="$SOFTWARE_DIR"
@@ -50,7 +50,7 @@ RUN_ID="${SLURM_JOB_ID:-local}_r${SLURM_RESTART_COUNT:-0}"
 export CAGEFLOW_RUN_ID="$RUN_ID"
 OUT_DIR="${CNIO_CI_OUT:-$FG_DIR/results/$RUN_ID}"
 
-# Compute nodes (verified on fortran, 2026-11-28) have no /usr/bin/git, so provenance.txt
+# Compute nodes (verified on fortran, 2026-11-28) have no /usr/bin/git, so env_snapshot.txt
 # recorded every checkout as `not-a-git-checkout`. EESSI is mounted there, though: use its git.
 # Appended to PATH, not prepended, so nothing in EESSI's compat layer shadows the venv's tools.
 if ! command -v git >/dev/null 2>&1; then
@@ -101,7 +101,7 @@ EOF
     exit 1
 fi
 
-# provenance.txt: what this run ran against, written before main.py starts so a
+# env_snapshot.txt: what this run ran against, written before main.py starts so a
 # crashed run has one too. One line per checkout: SHA, clean or dirty (tracked
 # files only: sbatch.out/.err are untracked), repository root.
 # safe.directory='*': a shared install belongs to another account, and git refuses
@@ -123,7 +123,7 @@ checkout() {
     fi
 }
 
-write_provenance() {
+write_env_snapshot() {
     local fg_src
     # The flowgentic the venv imports, wherever its editable install points.
     fg_src=$(python3 -I -c 'import importlib.util as u; print(u.find_spec("flowgentic").submodule_search_locations[0])' 2>/dev/null) \
@@ -152,7 +152,7 @@ write_provenance() {
 
 mkdir -p "$OUT_DIR"
 cp "$CONFIG" "$OUT_DIR/config.used.json"
-write_provenance > "$OUT_DIR/provenance.txt"
+write_env_snapshot > "$OUT_DIR/env_snapshot.txt"
 
 # main.py reads this instead of computing its own out_dir, so this script is the
 # single source of truth for where output lands. Without it, main.py's own
