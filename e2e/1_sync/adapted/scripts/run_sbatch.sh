@@ -50,6 +50,16 @@ RUN_ID="${SLURM_JOB_ID:-local}_r${SLURM_RESTART_COUNT:-0}"
 export CAGEFLOW_RUN_ID="$RUN_ID"
 OUT_DIR="${CNIO_CI_OUT:-$FG_DIR/results/$RUN_ID}"
 
+# Compute nodes (verified on fortran, 2026-11-28) have no /usr/bin/git, so provenance.txt
+# recorded every checkout as `not-a-git-checkout`. EESSI is mounted there, though: use its git.
+# Appended to PATH, not prepended, so nothing in EESSI's compat layer shadows the venv's tools.
+if ! command -v git >/dev/null 2>&1; then
+    EESSI_GIT=$(ls -d /cvmfs/software.eessi.io/versions/*/compat/linux/x86_64/usr/bin/git 2>/dev/null | sort | tail -1)
+    if [ -n "$EESSI_GIT" ]; then
+        PATH="$PATH:$(dirname "$EESSI_GIT")"
+    fi
+fi
+
 # Self-contained venv: no `module load`, so PYTHONPATH is never set. See
 # context/current-implementation.md "UPDATE 2026-10-20" for why that matters.
 # Unset anyway: if a submitting shell exported one, the compute node would inherit it.
